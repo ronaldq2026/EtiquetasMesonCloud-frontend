@@ -1,32 +1,84 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { useProducts, useSearchProducts } from '@/hooks/useProducts';
 import { Product, mockProducts } from '@/lib/mock-data';
+import { ApiProduct } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 
 interface ProductSearchProps {
   onProductSelect: (product: Product) => void;
   selectedProduct?: Product;
 }
 
+function mapApiProductToProduct(apiProduct: ApiProduct): Product {
+  return {
+    id: apiProduct.id.toString(),
+    codigo: apiProduct.codigo,
+    codigoBarras: apiProduct.codigoBarras,
+    nombre: apiProduct.nombre,
+    descripcion: apiProduct.descripcion,
+    dosage: apiProduct.talla,
+    batch: apiProduct.codigoBarras,
+    expiryDate: '2026-12-31',
+    manufacturer: apiProduct.laboratorio,
+    precioNormal: apiProduct.precioNormal,
+    precio: apiProduct.precioActual,
+    stock: apiProduct.stock,
+    categoria: apiProduct.categoria,
+    laboratorio: apiProduct.laboratorio,
+    ...(apiProduct.precioOferta && {
+      oferta: {
+        precioOferta: apiProduct.precioOferta,
+        vigenciaInicio: apiProduct.vigenciaInicio || '',
+        vigenciaFin: apiProduct.vigenciaFin || '',
+        descuentoPorcentaje: apiProduct.descuentoPorcentaje || 0,
+        tipoOferta: apiProduct.tipoOferta || '1',
+      }
+    }),
+    ...(apiProduct.enMeson && {
+      meson: {
+        division: apiProduct.division || '',
+        categoria: apiProduct.categoriaLarga || '',
+        subcategoria: apiProduct.subcategoria || '',
+        marca: apiProduct.marca || '',
+        enMeson: true,
+      }
+    }),
+  };
+}
+
 export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Usar hook con fallback a datos mock
+  const { products: apiProducts, isLoading: isLoadingAll } = useProducts({
+    fallback: mockProducts.map(p => ({
+      id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
+      codigo: p.codigo,
+      codigoBarras: p.codigoBarras,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      talla: p.dosage,
+      precioNormal: p.precioNormal,
+      precioUnitario: p.precio,
+      stock: p.stock,
+      categoria: p.categoria,
+      laboratorio: p.laboratorio,
+      precioActual: p.precio,
+    } as ApiProduct))
+  });
 
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return mockProducts;
-    
-    const query = searchQuery.toLowerCase();
-    return mockProducts.filter(
-      (product) =>
-        product.nombre.toLowerCase().includes(query) ||
-        product.descripcion.toLowerCase().includes(query) ||
-        product.dosage.toLowerCase().includes(query) ||
-        product.codigo.toLowerCase().includes(query)
-    );
-  }, [searchQuery]);
+  const { results: searchResults, isLoading: isSearching } = useSearchProducts(searchQuery);
+
+  const displayProducts = searchQuery.trim() 
+    ? searchResults 
+    : apiProducts;
+
+  const filteredProducts = displayProducts.map(mapApiProductToProduct);
 
   return (
     <Card className="w-full">
@@ -37,18 +89,28 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
       <CardContent className="space-y-4">
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          {isSearching || isLoadingAll ? (
+            <Loader2 className="absolute left-3 top-3 h-4 w-4 text-gray-400 animate-spin" />
+          ) : (
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          )}
           <Input
             placeholder="Buscar productos..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={isLoadingAll && !searchQuery}
             className="pl-10"
           />
         </div>
 
         {/* Product List */}
         <div className="max-h-80 overflow-y-auto space-y-2">
-          {filteredProducts.length > 0 ? (
+          {(isLoadingAll || isSearching) && filteredProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-gray-400" />
+              <p className="text-sm text-gray-500">Cargando productos...</p>
+            </div>
+          ) : filteredProducts.length > 0 ? (
             filteredProducts.map((product) => (
               <Button
                 key={product.id}
