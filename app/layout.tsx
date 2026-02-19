@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Etiquetas Farmacéuticas - Sistema Profesional de Impresión de Etiquetas',
-  description: 'Crea e imprime etiquetas farmacéuticas personalizables con constructor visual y vista previa en tiempo real',
+  title: 'Impresión de Etiquetas - Farmacias Ahumada',
+  description: 'Crea e imprime etiquetas personalizables para Farmacias Ahumada con constructor visual y vista previa en tiempo real',
   generator: 'v0.app',
   icons: {
     icon: [
