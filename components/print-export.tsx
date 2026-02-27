@@ -1,12 +1,18 @@
-'use client';
+"use client";
 
-import { useRef } from 'react';
-import { Product, LabelConfig } from '@/lib/mock-data';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Printer, Download } from 'lucide-react';
+import { useRef, useState } from "react";
+import { Product, LabelConfig } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Printer, Download } from "lucide-react";
 
 interface PrintExportProps {
   product: Product;
@@ -15,88 +21,120 @@ interface PrintExportProps {
 
 export function PrintExport({ product, config }: PrintExportProps) {
   const printRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [qty, setQty] = useState<number>(1);
+  const [exporting, setExporting] = useState(false);
+
+  // Utilidad: mm -> px (aprox. 96dpi)
+  const mmToPx = (mm: number) => Math.round((mm * 96) / 25.4);
 
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
 
-    const printWindow = window.open('', '', 'width=800,height=600');
-    if (!printWindow) return;
+    const w = window.open("", "", "width=900,height=700");
+    if (!w) return;
 
+    // Estilos mínimos para respetar tamaño de etiqueta
+    const widthPx = mmToPx(config.width);
+    const heightPx = mmToPx(config.height);
     const styles = `
       <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        body {
-          font-family: Arial, sans-serif;
+        @page { size: ${config.width}mm ${config.height}mm; margin: 0; }
+        body { margin: 0; }
+        .label-root {
+          width: ${widthPx}px;
+          height: ${heightPx}px;
+          background: ${config.backgroundColor};
+          color: ${config.textColor};
+          font-size: ${config.fontSize}px;
+          font-family: Arial, Roboto, "Segoe UI", sans-serif;
           display: flex;
+          flex-direction: column;
           justify-content: center;
           align-items: center;
-          min-height: 100vh;
-          padding: 20px;
+          padding: 8px;
+          box-sizing: border-box;
         }
-        @media print {
-          body {
-            padding: 0;
-          }
-        }
+        .line { margin: 2px 0; text-align: center; }
+        .price { font-weight: 700; font-size: ${Math.max(config.fontSize + 4, 14)}px; }
       </style>
     `;
 
-    printWindow.document.write(
-      '<html><head>' +
-      '<title>Imprimir Etiqueta</title>' +
-      styles +
-      '</head><body>' +
-      printContent.innerHTML +
-      '</body></html>'
+    // Si quieres imprimir múltiples copias, el diálogo de la impresora normalmente lo permite.
+    // Aquí imprimimos el contenido una vez.
+    w.document.write(
+      `<!doctype html><html><head><meta charset="utf-8" />${styles}</head><body>${printContent.innerHTML}</body></html>`
     );
-    printWindow.document.close();
-    printWindow.print();
+    w.document.close();
+    // Espera a que renderice antes de disparar print
+    w.focus();
+    w.print();
+    w.close();
   };
 
-  const handleDownloadPDF = async () => {
-    try {
-      // Using html2pdf library approach or canvas-based approach
-      const element = printRef.current;
-      if (!element) return;
+  // Exportar PNG usando html2canvas (copia fiel del HTML)
+  const handleExportPNG_Html = async () => {
+  try {
+    setExporting(true);
 
-      // Create canvas from HTML
-      const canvas = await html2canvas(element);
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
-      link.download = `label_${product.id}_${Date.now()}.png`;
-      link.click();
-    } catch (error) {
-      console.error('Error downloading label:', error);
-      // Fallback: just trigger print dialog
-      handlePrint();
+    if (typeof window === "undefined") {
+      throw new Error("Esta acción requiere entorno de navegador.");
     }
-  };
 
-  // Simple PNG export using Canvas API
-  const handleExportPNG = () => {
-    const canvas = document.createElement('canvas');
-    const mmToPx = 3.78; // Approximate conversion
-    canvas.width = config.width * mmToPx;
-    canvas.height = config.height * mmToPx;
+    const element = printRef.current as HTMLElement | null;
+    if (!element) throw new Error("No se encontró el contenedor de la etiqueta.");
 
-    const ctx = canvas.getContext('2d');
+    // Import dinámico (sólo cliente)
+    const { default: html2canvas } = await import("html2canvas");
+
+    // Opciones compatibles con distintos typings
+    const opts: any = {
+      scale: 2,
+      useCORS: true,
+    };
+
+    // Si tu runtime soporta backgroundColor (transparencia), úsalo.
+    // Si tus typings son antiguos, evita el error usando 'background'.
+    try {
+      (opts as any).backgroundColor = null; // transparencia
+    } catch {
+      (opts as any).background = undefined; // equivalente en algunos builds
+    }
+
+    const canvas = await html2canvas(element, opts);
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `label_${product.id}_${Date.now()}.png`;
+    link.click();
+  } catch (error) {
+    console.error("Error exportando PNG:", error);
+  } finally {
+    setExporting(false);
+  }
+}; 
+  
+
+  // Exportar PNG “vectorizado simple” (pinta texto a mano sobre un canvas)
+  // Útil como alternativa ligera si no necesitas snapshot fiel del HTML.
+  const handleExportPNG_Canvas = () => {
+    const widthPx = mmToPx(config.width);
+    const heightPx = mmToPx(config.height);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = widthPx;
+    canvas.height = heightPx;
+
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Draw background
+    // Fondo
     ctx.fillStyle = config.backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw text
+    // Texto
     ctx.fillStyle = config.textColor;
-    ctx.font = `${config.fontSize}px Arial`;
-    ctx.textAlign = 'center';
-
+    ctx.textAlign = "center";
     const padding = 10;
     const lineHeight = config.fontSize + 4;
     let y = padding + config.fontSize;
@@ -107,99 +145,139 @@ export function PrintExport({ product, config }: PrintExportProps) {
     if (config.showDosage) lines.push(`Talla: ${product.dosage}`);
     if (config.showBatch) lines.push(`Código: ${product.codigo}`);
     if (config.showExpiry) lines.push(`Venc: ${product.expiryDate}`);
-    if (config.showManufacturer) lines.push(product.laboratorio);
-    if (config.showPrice) lines.push(`$${product.precio.toLocaleString('es-CL')}`);
+    if (config.showManufacturer) lines.push(product.laboratorio);  
+	if (config.showPrice) {
+	  const precioStr =
+		typeof product.precio === "number"
+		  ? `$ ${product.precio.toLocaleString("es-CL")}`
+		  : "-";
+	  lines.push(precioStr);
+	}  
+  
 
     lines.forEach((line) => {
+      ctx.font = `${config.fontSize}px Arial`;
       ctx.fillText(line, canvas.width / 2, y);
       y += lineHeight;
     });
 
-    // Download
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
     link.download = `label_${product.id}_${Date.now()}.png`;
     link.click();
   };
 
+  const widthPx = mmToPx(config.width);
+  const heightPx = mmToPx(config.height);
+
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
+    <Card>
+      <CardHeader>
         <CardTitle>Imprimir y Exportar</CardTitle>
-        <CardDescription>Imprime etiquetas o exporta como imagen</CardDescription>
+        <CardDescription>Imprime etiquetas o expórtalas como imagen</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Hidden print content */}
-        <div ref={printRef} style={{ display: 'none' }}>
-          <div
-            style={{
-              width: `${config.width}mm`,
-              height: `${config.height}mm`,
-              backgroundColor: config.backgroundColor,
-              color: config.textColor,
-              padding: '12px',
-              fontFamily: 'Arial',
-              fontSize: `${config.fontSize}px`,
-              textAlign: 'center',
-              border: '1px solid #ccc',
-            }}
-          >
-            {config.showProductName && <div style={{ fontWeight: 'bold' }}>{product.nombre}</div>}
-            {config.showGenericName && <div style={{ fontSize: '0.8em', fontStyle: 'italic' }}>{product.descripcion}</div>}
-            {config.showDosage && <div style={{ fontWeight: 'bold' }}>Talla: {product.dosage}</div>}
-            {config.showManufacturer && <div style={{ fontSize: '0.8em' }}>Lab: {product.laboratorio}</div>}
-            {config.showBatch && <div style={{ fontSize: '0.8em' }}>Código: {product.codigo}</div>}
-            {config.showExpiry && <div style={{ fontSize: '0.8em' }}>Venc: {product.expiryDate}</div>}
-            {config.showPrice && <div style={{ fontWeight: 'bold', fontSize: '0.9em' }}>$ {product.precio.toLocaleString('es-CL')}</div>}
+
+      <CardContent>
+        {/* Contenido a imprimir/exportar */}
+        <div
+          ref={printRef}
+          className="label-root"
+          style={{
+            width: widthPx,
+            height: heightPx,
+            background: config.backgroundColor,
+            color: config.textColor,
+            fontSize: config.fontSize,
+            fontFamily: "Arial, Roboto, Segoe UI, sans-serif",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 8,
+            boxSizing: "border-box",
+            border: "1px dashed #ddd",
+            marginBottom: 12,
+          }}
+        >
+          {config.showProductName && (
+            <div className="line" style={{ fontWeight: 600 }}>
+              {product.nombre}
+            </div>
+          )}
+          {config.showGenericName && (
+            <div className="line">{product.descripcion}</div>
+          )}
+          {config.showDosage && (
+            <div className="line">Talla: {product.dosage}</div>
+          )}
+          {config.showManufacturer && (
+            <div className="line">Lab: {product.laboratorio}</div>
+          )}
+          {config.showBatch && (
+            <div className="line">Código: {product.codigo}</div>
+          )}
+          {config.showExpiry && (
+            <div className="line">Venc: {product.expiryDate}</div>
+          )}		  
+		  {config.showPrice && (
+			  <div className="line price">
+				{typeof product.precio === 'number'
+				  ? `$ ${product.precio.toLocaleString("es-CL")}`
+				  : "-"}
+			  </div>
+			)}
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Button onClick={handlePrint} variant="default">
+            <Printer size={16} style={{ marginRight: 6 }} />
+            Imprimir etiqueta
+          </Button>
+
+          {/* Export fiel al HTML (html2canvas) */}
+          <Button onClick={handleExportPNG_Html} variant="secondary" disabled={exporting}>
+            <Download size={16} style={{ marginRight: 6 }} />
+            {exporting ? "Generando PNG…" : "Exportar PNG (HTML)"}
+          </Button>
+
+          {/* Export “ligero” dibujando texto en canvas */}
+          <Button onClick={handleExportPNG_Canvas} variant="outline">
+            <Download size={16} style={{ marginRight: 6 }} />
+            Exportar PNG (Canvas)
+          </Button>
+        </div>
+
+        {/* Cantidad (informativo: usa el diálogo de la impresora para copias) */}
+        <div style={{ marginTop: 12, maxWidth: 240 }}>
+          <Label htmlFor="qty">Cantidad a imprimir</Label>
+          <Input
+            id="qty"
+            type="number"
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
+          />
+          <div style={{ color: "#666", fontSize: 12, marginTop: 6 }}>
+            Nota: establece el número de copias en el diálogo de tu impresora.
           </div>
         </div>
 
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-        {/* Print Button */}
-        <Button
-          onClick={handlePrint}
-          className="w-full bg-blue-600 hover:bg-blue-700"
+        {/* Info */}
+        <div
+          style={{
+            background: "#f7f7f7",
+            border: "1px solid #eee",
+            borderRadius: 8,
+            padding: 12,
+            marginTop: 12,
+          }}
         >
-          <Printer className="mr-2 h-4 w-4" />
-          Imprimir Etiqueta
-        </Button>
-
-        {/* Export Button */}
-        <Button
-          onClick={handleExportPNG}
-          variant="outline"
-          className="w-full"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Exportar como PNG
-        </Button>
-
-        {/* Quantity Input */}
-        <div className="space-y-2 border-t pt-4">
-          <Label htmlFor="quantity" className="text-sm">
-            Cantidad a Imprimir
-          </Label>
-          <Input
-            id="quantity"
-            type="number"
-            defaultValue="1"
-            min="1"
-            max="100"
-            className="text-sm"
-          />
-          <p className="text-xs text-gray-500">
-            Nota: Imprime múltiples copias desde la configuración de tu impresora
-          </p>
-        </div>
-
-        {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-          <p><strong>Consejos para imprimir:</strong></p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Ajusta la configuración para papel adhesivo o etiquetas</li>
-            <li>Prueba primero en papel normal</li>
-            <li>Usa plantilla de etiqueta que coincida con tu tamaño</li>
+          <strong>Consejos para imprimir:</strong>
+          <ul style={{ marginTop: 6, paddingLeft: 20 }}>
+            <li>Ajusta el tamaño de papel a {config.width}×{config.height} mm.</li>
+            <li>Usa papel adhesivo/etiquetas del tamaño configurado.</li>
+            <li>Prueba primero en papel normal.</li>
           </ul>
         </div>
       </CardContent>

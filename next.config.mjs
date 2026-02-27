@@ -1,12 +1,8 @@
-/** @type {import('next').NextConfig} */
+// next.config.mjs (ESM)
 const nextConfig = {
-  output: 'export',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
-}
+  output: 'export',        // para generar ./out con next export
+  trailingSlash: true,     // ayuda en IIS con rutas /foo/ -> foo/index.html
+  images: { unoptimized: true }, // si usas next/image
+};
 
-export default nextConfig
+export default nextConfig;

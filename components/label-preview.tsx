@@ -64,13 +64,14 @@ export function LabelPreview({ product, config }: LabelPreviewProps) {
             <div className="text-xs truncate">
               Venc: {product.expiryDate}
             </div>
-          )}
-          
-          {config.showPrice && (
-            <div className="font-bold text-sm truncate">
-              $ {product.precio.toLocaleString('es-CL')}
-            </div>
-          )}
+          )}          
+			{config.showPrice && (
+			  <div className="line price">
+				{typeof product.precio === 'number'
+				  ? `$ ${product.precio.toLocaleString('es-CL')}`
+				  : '-'}
+			  </div>
+			)}
         </div>
       </div>
     </div>

@@ -1,0 +1,19 @@
+// app/page.tsx
+
+import { PosDemoPanel } from "@/components/pos-demo-panel";
+
+export default function Page() {
+  return (
+    <main className="min-h-screen bg-background text-foreground p-4 flex flex-col gap-6">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-bold">
+          Impresión de Etiquetas – Farmacias Ahumada
+        </h1>
+      </header>
+
+      <section className="max-w-4xl">
+        <PosDemoPanel />
+      </section>
+    </main>
+  );
+}
