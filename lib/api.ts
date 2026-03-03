@@ -1,15 +1,13 @@
 // lib/api.ts – versión simple para producción en Windows
-
 // 👇 apunta DIRECTO al backend (en tu caso ya corre en :3000)
 const API_BASE_URL = 'http://localhost:3000';
-
 // 👇 Debe ser el mismo token configurado en el backend (API_TOKEN)
 const API_TOKEN = 'MI_TOKEN_DEMO_123';
 
 function buildHeaders(extra?: Record<string, string>) {
   return {
     ...(API_TOKEN ? { 'X-API-TOKEN': API_TOKEN } : {}),
-    ...(extra || {}),
+    ...(extra ?? {}),
   };
 }
 
@@ -28,16 +26,14 @@ export async function fetchDemoProducto() {
     method: 'GET',
     headers: buildHeaders(),
   });
-
   const parsed = await parseOrText(res);
   if (!res.ok) {
     const msg =
-      parsed.asJson?.message ||
-      parsed.asText ||
+      parsed.asJson?.message ??
+      parsed.asText ??
       `Error al obtener producto demo (${res.status})`;
     throw new Error(msg);
   }
-
   return (parsed.asJson?.producto ?? null) as any;
 }
 
@@ -46,16 +42,14 @@ export async function printDemoEtiqueta() {
     method: 'POST',
     headers: buildHeaders({ 'Content-Type': 'application/json' }),
   });
-
   const parsed = await parseOrText(res);
   if (!res.ok) {
     const msg =
-      parsed.asJson?.message ||
-      parsed.asText ||
+      parsed.asJson?.message ??
+      parsed.asText ??
       `Error al imprimir (${res.status})`;
     throw new Error(msg);
   }
-
   return parsed.asJson ?? { status: 'ok' };
 }
 
@@ -93,18 +87,16 @@ export type ExcelItem = {
 export async function uploadMesonExcel(file: File, user: string) {
   const fd = new FormData();
   fd.append('file', file);
-
   const res = await fetch(`${API_BASE_URL}/api/meson/excel/upload`, {
     method: 'POST',
     headers: buildHeaders({ 'x-user': user }),
     body: fd,
   });
-
   const parsed = await parseOrText(res);
   if (!res.ok || !parsed.asJson?.ok) {
     const msg =
-      parsed.asJson?.message ||
-      parsed.asText ||
+      parsed.asJson?.message ??
+      parsed.asText ??
       `Error subiendo Excel (${res.status})`;
     throw new Error(msg);
   }
@@ -119,8 +111,8 @@ export async function getExcelStatus() {
   const parsed = await parseOrText(res);
   if (!res.ok || !parsed.asJson?.ok) {
     const msg =
-      parsed.asJson?.message ||
-      parsed.asText ||
+      parsed.asJson?.message ??
+      parsed.asText ??
       `Error obteniendo estado Excel (${res.status})`;
     throw new Error(msg);
   }
@@ -128,21 +120,21 @@ export async function getExcelStatus() {
 }
 
 /* ====== NUEVO FLUJO ======
-   1) Buscar SOLO en Excel (rápido, sin DBF)
-   2) Al seleccionar, enriquecer con POSDPOFE (precios/ofertas)
+ 1) Buscar SOLO en Excel (rápido, sin DBF)
+ 2) Al seleccionar, enriquecer con POSDPOFE (precios/ofertas)
 */
 export async function searchExcel(term: string) {
   const url = `${API_BASE_URL}/api/meson/excel/search?term=${encodeURIComponent(term)}`;
   const res = await fetch(url, { method: 'GET', headers: buildHeaders() });
   const parsed = await parseOrText(res);
-	if (!res.ok || !parsed.asJson?.ok) {
-	  const msgBase =
-		parsed.asJson?.message ||
-		parsed.asText ||
-		`Error buscando en Excel (${res.status})`;
-	  const msg = parsed.asJson?.detail ? `${msgBase} · Detalle: ${parsed.asJson.detail}` : msgBase;
-	  throw new Error(msg);
-	}
+  if (!res.ok || !parsed.asJson?.ok) {
+    const msgBase =
+      parsed.asJson?.message ??
+      parsed.asText ??
+      `Error buscando en Excel (${res.status})`;
+    const msg = parsed.asJson?.detail ? `${msgBase} · Detalle: ${parsed.asJson.detail}` : msgBase;
+    throw new Error(msg);
+  }
   return (parsed.asJson?.items ?? []) as ExcelItem[];
 }
 
@@ -152,8 +144,8 @@ export async function enrichFromDPOFE(sku: string) {
   const parsed = await parseOrText(res);
   if (!res.ok) {
     const msg =
-      parsed.asJson?.message ||
-      parsed.asText ||
+      parsed.asJson?.message ??
+      parsed.asText ??
       `Error enriqueciendo SKU (${res.status})`;
     throw new Error(msg);
   }
@@ -164,4 +156,42 @@ export async function enrichFromDPOFE(sku: string) {
     message?: string;
     producto?: ProductoPOSDPOFE;
   };
+}
+
+/* ========= NUEVO: Exportar “HTML” (descargar EPL en DEV / imprimir en PROD) =========
+   Simplificado para evitar toggles en el frontend:
+   - Siempre enviamos mode: 'return-zpl'
+   - En DEV (laptop): backend devuelve archivo .epl (descarga)
+   - En PROD (server_760, NODE_ENV=production): backend fuerza impresión directa
+*/
+export type ExportHtmlResult =
+  | { type: 'blob'; blob: Blob } // DEV: descarga .epl
+  | { type: 'json'; data: any }; // PROD: impresión directa (respuesta JSON)
+
+export async function exportHtmlLabel(product: any, config: any): Promise<ExportHtmlResult> {
+  // Siempre pedimos 'return-zpl'; el backend en PROD lo sobre-escribe a impresión
+  const mode = 'return-zpl';
+
+  const res = await fetch(`${API_BASE_URL}/api/print/export-html`, {
+    method: 'POST',
+    headers: buildHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ product, config, mode }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Error en export-html (${res.status})`);
+  }
+
+  // Si el backend decidió imprimir (PROD), responderá JSON; si no, devuelve archivo.
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  if (isJson) {
+    const data = await res.json();
+    return { type: 'json', data };
+  }
+
+  const blob = await res.blob();
+  return { type: 'blob', blob };
 }
