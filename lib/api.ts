@@ -168,30 +168,26 @@ export type ExportHtmlResult =
   | { type: 'blob'; blob: Blob } // DEV: descarga .epl
   | { type: 'json'; data: any }; // PROD: impresión directa (respuesta JSON)
 
-export async function exportHtmlLabel(product: any, config: any): Promise<ExportHtmlResult> {
-  // Siempre pedimos 'return-zpl'; el backend en PROD lo sobre-escribe a impresión
-  const mode = 'return-zpl';
+export type ExportMode = 'print' | 'return-zpl';
 
-  const res = await fetch(`${API_BASE_URL}/api/print/export-html`, {
-    method: 'POST',
-    headers: buildHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ product, config, mode }),
-  });
-
-  if (!res.ok) {
+export async function exportHtmlLabel(product: any, config: any, mode: ExportMode = 'return-zpl'): Promise<ExportHtmlResult> {
+   const res = await fetch(`${API_BASE_URL}/api/print/export-html`, {
+     method: 'POST',
+     headers: buildHeaders({ 'Content-Type': 'application/json' }),
+     body: JSON.stringify({ product, config, mode }),
+   });  if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Error en export-html (${res.status})`);
   }
-
   // Si el backend decidió imprimir (PROD), responderá JSON; si no, devuelve archivo.
   const contentType = res.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
-
   if (isJson) {
     const data = await res.json();
     return { type: 'json', data };
   }
-
   const blob = await res.blob();
   return { type: 'blob', blob };
-}
+ }
+
+

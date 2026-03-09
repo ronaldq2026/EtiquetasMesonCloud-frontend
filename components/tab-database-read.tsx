@@ -1,229 +1,252 @@
-'use client';
-import { useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Database } from 'lucide-react';
+'use client'
 
-// Mock: Simulación de lectura de BD (dejamos igual los datos)
-const MOCK_DATABASE_PRODUCTS = [
-  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO', talla: '14-15', stock: 8,  precio: 16990, laboratorio: 'BLOODYGREEN', enOferta: true  },
-  { codigo: '89997001', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO', talla: '12-13', stock: 8,  precio: 16990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO',  talla: 'XXL',   stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: true  },
-  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO',  talla: 'XL',    stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO',  talla: 'L',     stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO',  talla: 'M',     stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: true  },
-];
+import { useEffect, useMemo, useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { FileJson } from 'lucide-react'
 
-interface TabDatabaseReadProps {
-  onProductSelect?: (product: any) => void;
-  onPrint?: (skus: string[]) => void;
+interface Product {
+  codigo: string
+  nombre: string
+  precioLista: number
+  precioOferta?: number | null
+  enOferta: boolean
 }
 
-export function TabDatabaseRead({ onProductSelect, onPrint }: TabDatabaseReadProps) {
-  const [selectedSkus, setSelectedSkus] = useState<Set<string>>(new Set());
+interface Props {
+  onPrint?: (skus: string[]) => void
+}
 
-  // Separar en dos grupos (igual que ahora)
+export function TabDatabaseRead({ onPrint }: Props) {
+
+  const [products, setProducts] = useState<Product[]>([])
+  const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set())
+  const [selectAllWithOffer, setSelectAllWithOffer] = useState(false)
+
+  useEffect(() => {
+
+    fetch("http://localhost:3000/api/pai/leer-centralizado")
+      .then(res => res.json())
+      .then(data => setProducts(data))
+      .catch(err => console.error(err))
+
+  }, [])
+
   const productsWithOffer = useMemo(
-    () => MOCK_DATABASE_PRODUCTS.filter(p => p.enOferta),
-    []
-  );
+    () => products.filter(p => p.enOferta),
+    [products]
+  )
+
   const productsWithoutOffer = useMemo(
-    () => MOCK_DATABASE_PRODUCTS.filter(p => !p.enOferta),
-    []
-  );
+    () => products.filter(p => !p.enOferta),
+    [products]
+  )
 
-  const handleSelectAll = (grupo: 'with' | 'without') => {
-    const newSelected = new Set(selectedSkus);
-    const products = grupo === 'with' ? productsWithOffer : productsWithoutOffer;
-    products.forEach(p => {
-      if (newSelected.has(p.codigo)) newSelected.delete(p.codigo);
-      else newSelected.add(p.codigo);
-    });
-    setSelectedSkus(newSelected);
-  };
+  const toggleWithOffer = (codigo: string) => {
 
-  const handleToggleSku = (codigo: string) => {
-    const next = new Set(selectedSkus);
-    if (next.has(codigo)) next.delete(codigo);
-    else next.add(codigo);
-    setSelectedSkus(next);
-  };
+    const newSelected = new Set(selectedWithOffer)
 
-  const handlePrintSelected = () => {
-    if (selectedSkus.size === 0) {
-      alert('Por favor selecciona al menos un producto');
-      return;
+    if (newSelected.has(codigo)) {
+      newSelected.delete(codigo)
+    } else {
+      newSelected.add(codigo)
     }
-    onPrint?.(Array.from(selectedSkus));
-    alert(`Imprimiendo ${selectedSkus.size} etiqueta(s)...`);
-  };
 
-  const handlePrintAll = () => {
-    const allSkus = MOCK_DATABASE_PRODUCTS.map(p => p.codigo);
-    onPrint?.(allSkus);
-    alert(`Imprimiendo ${allSkus.length} etiqueta(s)...`);
-  };
+    setSelectedWithOffer(newSelected)
+    setSelectAllWithOffer(newSelected.size === productsWithOffer.length)
+
+  }
+
+  const toggleSelectAllWithOffer = () => {
+
+    if (selectAllWithOffer) {
+
+      setSelectedWithOffer(new Set())
+      setSelectAllWithOffer(false)
+
+    } else {
+
+      setSelectedWithOffer(new Set(productsWithOffer.map(p => p.codigo)))
+      setSelectAllWithOffer(true)
+
+    }
+  }
+
+  const handlePrint = () => {
+
+    const skus = Array.from(selectedWithOffer)
+
+    if (skus.length === 0) {
+      alert("Selecciona productos")
+      return
+    }
+
+    onPrint?.(skus)
+
+  }
 
   return (
+
     <div className="space-y-6">
 
-      {/* Header (renombrado a Archivo Centralizado) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-blue-600" />
+            <FileJson className="h-5 w-5 text-blue-600"/>
             Lectura del Archivo Maestro Centralizado
           </CardTitle>
+
           <CardDescription>
-            Simula lectura de SKUs desde un archivo centralizado (tabla Oracle). Mostrará productos con y sin ofertas vigentes.
+            Productos obtenidos desde DBF + archivo centralizado
           </CardDescription>
         </CardHeader>
       </Card>
 
-      {/* Estadísticas (color reforzado en SIN ofertas) */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-gray-900">{MOCK_DATABASE_PRODUCTS.length}</p>
-              <p className="text-xs text-gray-600">Total Productos</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              {/* CON ofertas -> color normal */}
-              <p className="text-3xl font-bold text-gray-900">{productsWithOffer.length}</p>
-              <p className="text-xs text-gray-600">Con Ofertas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              {/* SIN ofertas -> rojo */}
-              <p className="text-3xl font-bold text-red-600">{productsWithoutOffer.length}</p>
-              <p className="text-xs text-gray-600">Sin Ofertas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">{selectedSkus.size}</p>
-              <p className="text-xs text-gray-600">Seleccionados</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* CON OFERTAS */}
 
-      {/* Productos CON Ofertas → normal (sin rojos) */}
       <Card>
-        <CardHeader className="bg-white border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-gray-900">Productos CON Ofertas ({productsWithOffer.length})</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSelectAll('with')}
-              className="text-xs"
-            >
-              {productsWithOffer.some(p => selectedSkus.has(p.codigo)) ? 'Deseleccionar' : 'Seleccionar'} Todo
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            {productsWithOffer.map(product => (
-              <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={selectedSkus.has(product.codigo)}
-                  onChange={() => handleToggleSku(product.codigo)}
-                  className="w-4 h-4 rounded border-gray-300"
-                />
-                <div className="flex-1">
-                  <p className="font-medium text-sm text-gray-900">{product.nombre}</p>
-                  <p className="text-xs text-gray-600">
-                    SKU: {product.codigo} • Talla: {product.talla} • Stock: {product.stock}
-                  </p>
-                </div>
-                {/* ⬇️ ahora precio en color normal */}
-                <span className="text-sm font-semibold text-gray-900">
-                  ${product.precio.toLocaleString('es-CL')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Productos SIN Ofertas → resaltados (rojo + negrilla + leve fondo) */}
-      <Card>
-        <CardHeader className="bg-red-50 border-b border-red-200">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-red-700 font-semibold">
-              Productos SIN Ofertas ({productsWithoutOffer.length})
+        <CardHeader className="border-b">
+
+          <div className="flex justify-between">
+
+            <CardTitle>
+              Productos CON Ofertas ({productsWithOffer.length})
             </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSelectAll('without')}
-              className="text-xs"
-            >
-              {productsWithoutOffer.some(p => selectedSkus.has(p.codigo)) ? 'Deseleccionar' : 'Seleccionar'} Todo
-            </Button>
+
+            <div className="flex gap-2 items-center">
+
+              <Checkbox
+                checked={selectAllWithOffer}
+                onCheckedChange={toggleSelectAllWithOffer}
+              />
+
+              <span className="text-sm">Seleccionar todo</span>
+
+            </div>
+
           </div>
+
         </CardHeader>
+
         <CardContent className="pt-6">
+
           <div className="space-y-3">
-            {productsWithoutOffer.map(product => (
-              <div
-                key={product.codigo}
-                className="flex items-center gap-3 p-3 border rounded-lg bg-red-50 hover:bg-red-50/80 border-red-200"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedSkus.has(product.codigo)}
-                  onChange={() => handleToggleSku(product.codigo)}
-                  className="w-4 h-4 rounded border-red-300"
+
+            {productsWithOffer.map(product => (
+
+              <div key={product.codigo} className="flex gap-3 p-3 border rounded-lg">
+
+                <Checkbox
+                  checked={selectedWithOffer.has(product.codigo)}
+                  onCheckedChange={() => toggleWithOffer(product.codigo)}
                 />
+
                 <div className="flex-1">
-                  <p className="font-semibold text-sm text-red-700">{product.nombre}</p>
-                  <p className="text-xs text-red-700/90">
-                    SKU: {product.codigo} • Talla: {product.talla} • Stock: {product.stock}
+
+                  <p className="font-semibold text-sm">
+                    {product.nombre}
                   </p>
+
+                  <p className="text-xs text-gray-600">
+
+                    SKU: {product.codigo}
+
+                  </p>
+
                 </div>
-                <span className="text-sm font-bold text-red-700">
-                  ${product.precio.toLocaleString('es-CL')}
-                </span>
+
+                <div className="text-right">
+
+                  <p className="text-xs line-through text-gray-400">
+
+                    ${product.precioLista.toLocaleString("es-CL")}
+
+                  </p>
+
+                  <p className="font-bold text-green-600">
+
+                    ${product.precioOferta?.toLocaleString("es-CL")}
+
+                  </p>
+
+                </div>
+
               </div>
+
             ))}
+
           </div>
+
         </CardContent>
+
       </Card>
 
-      {/* Acciones (igual) */}
-      <div className="grid grid-cols-3 gap-4">
-        <Button
-          onClick={handlePrintSelected}
-          disabled={selectedSkus.size === 0}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          Imprimir Seleccionados ({selectedSkus.size})
-        </Button>
-        <Button onClick={handlePrintAll} variant="outline">
-          Imprimir Todos ({MOCK_DATABASE_PRODUCTS.length})
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() => setSelectedSkus(new Set())}
-          disabled={selectedSkus.size === 0}
-        >
-          Limpiar Selección
-        </Button>
-      </div>
+      {/* SIN OFERTAS */}
+
+      <Card className="border-red-400 border-2 bg-red-50">
+
+        <CardHeader>
+
+          <CardTitle className="text-red-700">
+
+            Productos SIN Ofertas ({productsWithoutOffer.length})
+
+          </CardTitle>
+
+        </CardHeader>
+
+        <CardContent className="pt-6">
+
+          <div className="space-y-3">
+
+            {productsWithoutOffer.map(product => (
+
+              <div key={product.codigo} className="flex justify-between p-3 border rounded-lg">
+
+                <div>
+
+                  <p className="font-semibold text-red-900">
+
+                    {product.nombre}
+
+                  </p>
+
+                  <p className="text-xs text-red-700">
+
+                    SKU: {product.codigo}
+
+                  </p>
+
+                </div>
+
+                <p className="font-bold text-red-900">
+
+                  ${product.precioLista.toLocaleString("es-CL")}
+
+                </p>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        </CardContent>
+
+      </Card>
+
+      <Button
+        onClick={handlePrint}
+        disabled={selectedWithOffer.size === 0}
+        className="bg-blue-600 hover:bg-blue-700"
+      >
+
+        Imprimir Seleccionados ({selectedWithOffer.size})
+
+      </Button>
+
     </div>
-  );
+  )
 }

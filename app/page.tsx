@@ -18,6 +18,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('preview');
   const [activeMenu, setActiveMenu] = useState<'manual' | 'database' | 'file'>('manual');
 
+  const onProductSelect = (product: Product) => {
+    setSelectedProduct(product);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
@@ -58,7 +62,7 @@ export default function Home() {
                 value="file" 
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-4 font-semibold"
               >
-                Cargar Archivo TXT
+                Cargar Archivo Local (RF)
               </TabsTrigger>
             </TabsList>
           </Tabs>

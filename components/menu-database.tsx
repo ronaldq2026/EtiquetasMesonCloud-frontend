@@ -1,11 +1,13 @@
 // components/menu-database.tsx
 'use client';
+
 import { useState, useMemo } from 'react';
 import { mockProducts } from '@/lib/mock-data';
 import { simulatedDatabaseProducts } from '@/lib/mock-menu-data';
 import { ProductsGrid } from './products-grid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 export function MenuDatabase() {
   const [isLoading, setIsLoading] = useState(false);
@@ -96,15 +98,16 @@ export function MenuDatabase() {
         onExport={undefined}  // no export aquí
       />
 
-      {/* SIN Ofertas: NO imprimibles → sin checkbox y con botón Exportar CSV */}
-      <ProductsGrid
-        title={`Productos SIN Ofertas (${productsWithoutOffer.length})`}
-        products={productsWithoutOffer}
-        selectable={false}     // ← sin checkbox
-        showSelectAll={false}  // ← oculta “Seleccionar Todo”
-        variant="without-offer"
-        onExport={(rows) => exportCsv(rows)} // ← muestra “Exportar CSV”
-      />
+      {/* SIN Ofertas: NO imprimibles → sin checkbox y con botón Exportar CSV */}	  
+	  <ProductsGrid
+		title={`Productos SIN Ofertas (${productsWithoutOffer.length})`}
+		products={productsWithoutOffer}
+		selectable={false}
+		showSelectAll={false}
+		variant="no-offer"          // ✅ CORRECTO
+		onExport={(rows) => exportCsv(rows)}
+	  />
+	  
     </div>
   );
 }

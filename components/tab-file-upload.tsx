@@ -1,18 +1,18 @@
 'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 
 // Mock: Todos los SKUs disponibles en BD
 const ALL_AVAILABLE_SKUS = [
-  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 14-15', enOferta: true, precio: 16990 },
+  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 14-15', enOferta: true,  precio: 16990 },
   { codigo: '89997001', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 12-13', enOferta: false, precio: 16990 },
-  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XXL', enOferta: true, precio: 19990 },
-  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XL', enOferta: false, precio: 19990 },
-  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO L', enOferta: false, precio: 19990 },
-  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO M', enOferta: true, precio: 19990 },
+  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XXL',   enOferta: true,  precio: 19990 },
+  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XL',    enOferta: false, precio: 19990 },
+  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO L',     enOferta: false, precio: 19990 },
+  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO M',     enOferta: true,  precio: 19990 },
 ];
 
 // Mock: Ejemplo de archivo TXT
@@ -32,20 +32,22 @@ interface ParsedResult {
 export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void }) {
   const [fileContent, setFileContent] = useState<string>('');
   const [parseResult, setParseResult] = useState<ParsedResult | null>(null);
-  const [selectedSkus, setSelectedSkus] = useState<Set<string>>(new Set());
+  const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
+  const [selectAllWithOffer, setSelectAllWithOffer] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setFileContent(content);
-      parseAndMatch(content);
+  useEffect(() => {
+    // Cargar automáticamente cuando se monta el componente
+    const loadEtiquetaFile = async () => {
+      try {
+        const content = EXAMPLE_TXT;
+        setFileContent(content);
+        parseAndMatch(content);
+      } catch (error) {
+        console.error('Error al cargar archivo:', error);
+      }
     };
-    reader.readAsText(file);
-  };
+    loadEtiquetaFile();
+  }, []);
 
   const parseAndMatch = (content: string) => {
     const skus = content
@@ -60,18 +62,34 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
     skus.forEach(sku => {
       const found = ALL_AVAILABLE_SKUS.find(p => p.codigo === sku);
       if (found) {
-        if (found.enOferta) {
-          conOferta.push(found);
-        } else {
-          sinOferta.push(found);
-        }
+        if (found.enOferta) conOferta.push(found);
+        else sinOferta.push(found);
       } else {
         noEncontrados.push(sku);
       }
     });
 
     setParseResult({ conOferta, sinOferta, noEncontrados });
-    setSelectedSkus(new Set());
+    setSelectedWithOffer(new Set());
+    setSelectAllWithOffer(false);
+  };
+
+  const toggleWithOffer = (codigo: string) => {
+    const newSelected = new Set(selectedWithOffer);
+    if (newSelected.has(codigo)) newSelected.delete(codigo);
+    else newSelected.add(codigo);
+    setSelectedWithOffer(newSelected);
+    setSelectAllWithOffer(newSelected.size === (parseResult?.conOferta.length ?? 0));
+  };
+
+  const toggleSelectAllWithOffer = () => {
+    if (selectAllWithOffer) {
+      setSelectedWithOffer(new Set());
+      setSelectAllWithOffer(false);
+    } else {
+      setSelectedWithOffer(new Set(parseResult?.conOferta.map(p => p.codigo) ?? []));
+      setSelectAllWithOffer(true);
+    }
   };
 
   const handleUseExample = () => {
@@ -79,38 +97,20 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
     parseAndMatch(EXAMPLE_TXT);
   };
 
-  const handleToggleSku = (codigo: string) => {
-    const newSelected = new Set(selectedSkus);
-    if (newSelected.has(codigo)) {
-      newSelected.delete(codigo);
-    } else {
-      newSelected.add(codigo);
-    }
-    setSelectedSkus(newSelected);
-  };
-
   const handlePrintSelected = () => {
-    if (selectedSkus.size === 0) {
-      alert('Por favor selecciona al menos un producto');
+    if (selectedWithOffer.size === 0) {
+      alert('Por favor selecciona al menos un producto con oferta para imprimir');
       return;
     }
-    onPrint?.(Array.from(selectedSkus));
-    alert(`Imprimiendo ${selectedSkus.size} etiqueta(s)...`);
+    onPrint?.(Array.from(selectedWithOffer));
+    alert(`Imprimiendo ${selectedWithOffer.size} etiqueta(s)...`);
   };
 
-  const handlePrintAll = () => {
-    const allSkus = [
-      ...(parseResult?.conOferta || []),
-      ...(parseResult?.sinOferta || [])
-    ].map(p => p.codigo);
-    
-    if (allSkus.length === 0) {
-      alert('No hay productos válidos para imprimir');
-      return;
-    }
-    
-    onPrint?.(allSkus);
-    alert(`Imprimiendo ${allSkus.length} etiqueta(s)...`);
+  const handleExport = () => {
+    const skus = parseResult?.sinOferta.map(p => p.codigo) ?? [];
+    console.log('Exportando SKUs sin oferta:', skus);
+    alert(`Exportando ${skus.length} producto(s) sin oferta...`);
+    // Si luego quieres CSV real, aquí podemos generar el archivo y descargarlo.
   };
 
   return (
@@ -120,32 +120,20 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-green-600" />
-            Cargar Archivo TXT
+            Cargar Archivo de Captura (Etiquetas-RF)
           </CardTitle>
           <CardDescription>
-            Sube un archivo .txt con SKUs separados por línea. Se validarán contra productos en BD.
+            Carga automáticamente los datos desde el archivo etiqueta. Se validarán contra productos en BD.
           </CardDescription>
         </CardHeader>
       </Card>
 
       {/* Upload Area */}
-      <Card className="border-2 border-dashed border-gray-300 hover:border-green-500 transition">
+      <Card className="border-2 border-dashed border-gray-300">
         <CardContent className="pt-6">
-          <div className="flex flex-col items-center justify-center py-12">
-            <Upload className="h-12 w-12 text-gray-400 mb-4" />
-            <label className="cursor-pointer w-full">
-              <div className="text-center">
-                <p className="text-sm font-semibold text-gray-900">Selecciona o arrastra un archivo TXT</p>
-                <p className="text-xs text-gray-600 mt-1">Solo archivos .txt, máximo 1MB</p>
-              </div>
-              <input
-                type="file"
-                accept=".txt"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-          </div>
+          <p className="text-xs text-gray-600 text-center">
+            Leyendo automáticamente desde: E:\fasapos\correo\recibe\ETIQUERF.760
+          </p>
 
           {fileContent && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
@@ -155,16 +143,6 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
               </pre>
             </div>
           )}
-
-          <div className="mt-4">
-            <Button
-              onClick={handleUseExample}
-              variant="outline"
-              className="w-full text-sm"
-            >
-              Usar Ejemplo Simulado
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -209,27 +187,48 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           </div>
 
-          {/* Con Ofertas */}
+          {/* CON Ofertas (→ NEGRO) */}
           {parseResult.conOferta.length > 0 && (
             <Card>
-              <CardHeader className="bg-red-50 border-b border-red-200">
-                <CardTitle className="text-red-700">Productos CON Ofertas ({parseResult.conOferta.length})</CardTitle>
+              {/* Header neutral (antes estaba rojo) */}
+              <CardHeader className="bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-gray-900">
+                    Productos CON Ofertas ({parseResult.conOferta.length})
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="select-all-offer-file"
+                      checked={selectAllWithOffer}
+                      onCheckedChange={() => toggleSelectAllWithOffer()}
+                    />
+                    <label htmlFor="select-all-offer-file" className="text-sm font-medium cursor-pointer">
+                      Seleccionar todo
+                    </label>
+                  </div>
+                </div>
               </CardHeader>
+
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {parseResult.conOferta.map(product => (
-                    <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedSkus.has(product.codigo)}
-                        onChange={() => handleToggleSku(product.codigo)}
-                        className="w-4 h-4 rounded border-gray-300"
+                    <div
+                      key={product.codigo}
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <Checkbox
+                        checked={selectedWithOffer.has(product.codigo)}
+                        onCheckedChange={() => toggleWithOffer(product.codigo)}
                       />
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">{product.nombre}</p>
+                        {/* NOMBRE en NEGRO */}
+                        <p className="font-semibold text-sm text-gray-900">{product.nombre}</p>
                         <p className="text-xs text-gray-600">SKU: {product.codigo}</p>
                       </div>
-                      <span className="text-sm font-bold text-red-600">${product.precio.toLocaleString('es-CL')}</span>
+                      {/* PRECIO en NEGRO */}
+                      <span className="text-sm font-bold text-gray-900">
+                        ${product.precio.toLocaleString('es-CL')}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -237,27 +236,36 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           )}
 
-          {/* Sin Ofertas */}
+          {/* SIN Ofertas (→ ROJO + bold, sin checkbox) */}
           {parseResult.sinOferta.length > 0 && (
             <Card>
-              <CardHeader className="bg-gray-50 border-b border-gray-200">
-                <CardTitle className="text-gray-700">Productos SIN Ofertas ({parseResult.sinOferta.length})</CardTitle>
+              {/* Header énfasis rojo */}
+              <CardHeader className="bg-red-50 border-b border-red-200">
+                <CardTitle className="text-red-700">
+                  Productos SIN Ofertas ({parseResult.sinOferta.length})
+                </CardTitle>
               </CardHeader>
+
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {parseResult.sinOferta.map(product => (
-                    <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedSkus.has(product.codigo)}
-                        onChange={() => handleToggleSku(product.codigo)}
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
+                    <div
+                      key={product.codigo}
+                      className="flex items-center gap-3 p-3 border rounded-lg bg-red-50/50"
+                    >
+                      {/* Sin checkbox: placeholder para alinear */}
+                      <div className="w-4 h-4" />
+
                       <div className="flex-1">
-                        <p className="font-semibold text-sm">{product.nombre}</p>
-                        <p className="text-xs text-gray-600">SKU: {product.codigo}</p>
+                        {/* NOMBRE en ROJO + bold */}
+                        <p className="font-semibold text-sm text-red-700">{product.nombre}</p>
+                        <p className="text-xs text-red-700">SKU: {product.codigo}</p>
                       </div>
-                      <span className="text-sm font-bold text-gray-900">${product.precio.toLocaleString('es-CL')}</span>
+
+                      {/* PRECIO en ROJO + bold */}
+                      <span className="text-sm font-bold text-red-700">
+                        ${product.precio.toLocaleString('es-CL')}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -286,28 +294,20 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           )}
 
-          {/* Acciones */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Acciones (pie) */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Imprimir SOLO con ofertas */}
             <Button
               onClick={handlePrintSelected}
-              disabled={selectedSkus.size === 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              disabled={selectedWithOffer.size === 0}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Imprimir Seleccionados ({selectedSkus.size})
+              Imprimir Seleccionados ({selectedWithOffer.size})
             </Button>
-            <Button
-              onClick={handlePrintAll}
-              variant="outline"
-              disabled={parseResult.conOferta.length + parseResult.sinOferta.length === 0}
-            >
-              Imprimir Todos ({parseResult.conOferta.length + parseResult.sinOferta.length})
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedSkus(new Set())}
-              disabled={selectedSkus.size === 0}
-            >
-              Limpiar Selección
+
+            {/* Exportar SIN ofertas */}
+            <Button onClick={handleExport} variant="destructive" className="bg-red-600 hover:bg-red-700">
+              Exportar Sin Ofertas ({parseResult.sinOferta.length})
             </Button>
           </div>
         </>
