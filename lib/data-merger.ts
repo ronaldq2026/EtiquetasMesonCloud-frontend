@@ -127,8 +127,7 @@ export function mergeProductData(
     if (ofertasMap.has(product.codigo)) {
       const oferta = ofertasMap.get(product.codigo)!;
       productoActualizado.oferta = oferta;
-      // Actualizar precio a precio de oferta
-      productoActualizado.precio = oferta.precioOferta;
+      productoActualizado.precioOferta = oferta.precioOferta;
     }
 
     // Agregar info de mesón si existe
@@ -144,14 +143,14 @@ export function mergeProductData(
  * Calcula ahorro por producto si tiene oferta
  */
 export function calcularAhorro(product: Product): number {
-  if (!product.oferta) return 0;
-  return product.precioNormal - product.precio;
+  if (!product.precioOferta || product.precioOferta <= 0) return 0;
+  return product.precioUnitario - product.precioOferta;
 }
 
 /**
  * Calcula porcentaje de descuento real
  */
 export function calcularDescuentoReal(product: Product): number {
-  if (!product.oferta) return 0;
-  return Math.round(((product.precioNormal - product.precio) / product.precioNormal) * 100);
+  if (!product.precioOferta || product.precioOferta <= 0) return 0;
+  return Math.round(((product.precioUnitario - product.precioOferta) / product.precioUnitario) * 100);
 }

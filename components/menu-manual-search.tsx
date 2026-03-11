@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Product, defaultLabelConfig } from '@/lib/mock-data';
+import { apiClient } from '@/lib/api-client';
 import { LabelPreview } from '@/components/label-preview';
 import { ConfigPanel } from '@/components/config-panel';
 import { ProductSearch } from '@/components/product-search';
@@ -17,6 +18,47 @@ interface MenuManualSearchProps {
 export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product>(initialProduct);
   const [labelConfig, setLabelConfig] = useState<LabelConfig>(defaultLabelConfig);
+  const [loading, setLoading] = useState(false);
+
+  // Cuando el usuario selecciona un producto, enriquecerlo con POSDPOFE
+  const handleProductSelect = async (product: Product) => {
+    setLoading(true);
+    try {
+      console.log('[v0] Seleccionado producto:', product.codigo);
+      const result = await apiClient.enrichProductFromDPOFE(product.codigo);
+      console.log('[v0] Respuesta del backend:', result);
+      
+      if (result?.ok && result?.producto) {
+        const enriched: Product = {
+          ...product,
+          descripcion: result.producto.descripcion || result.producto.descripcionPromo || product.descripcion,
+          codigoBarras: result.producto.ean13 || product.codigoBarras,
+          precioUnitario: result.producto.precioUnitario || 0,
+          precioOferta: result.producto.precioOferta || null,
+          precio: result.producto.precioOferta || result.producto.precioUnitario || 0,
+          ...(result.producto.precioOferta && {
+            oferta: {
+              precioOferta: result.producto.precioOferta,
+              vigenciaInicio: result.producto.vigenciaInicio || '',
+              vigenciaFin: result.producto.vigenciaFin || '',
+              descuentoPorcentaje: result.producto.descuentoPct || 0,
+              tipoOferta: '1',
+            },
+          }),
+        };
+        console.log('[v0] Producto enriquecido:', enriched);
+        setSelectedProduct(enriched);
+      } else {
+        console.log('[v0] No se encontró en POSDPOFE, usando producto del Excel');
+        setSelectedProduct(product);
+      }
+    } catch (error) {
+      console.error('[v0] Error enriqueciendo:', error);
+      setSelectedProduct(product);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -24,7 +66,7 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
       <div className="lg:col-span-1 space-y-6">
         <ProductSearch
           selectedProduct={selectedProduct}
-          onProductSelect={setSelectedProduct}
+          onProductSelect={handleProductSelect}
         />
         
         <Tabs defaultValue="config" className="w-full">
@@ -84,13 +126,13 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
             <div>
               <span className="text-gray-600">Precio:</span>
               <p className="font-semibold text-gray-900">
-                {selectedProduct.oferta ? (
+                {selectedProduct.precioOferta && selectedProduct.precioOferta > 0 ? (
                   <span>
-                    <span className="line-through text-gray-500 mr-2">${selectedProduct.precioNormal.toLocaleString('es-CL')}</span>
-                    <span className="text-red-600">${selectedProduct.precio.toLocaleString('es-CL')}</span>
+                    <span className="line-through text-gray-500 mr-2">${selectedProduct.precioUnitario.toLocaleString('es-CL')}</span>
+                    <span className="text-red-600">${selectedProduct.precioOferta.toLocaleString('es-CL')}</span>
                   </span>
                 ) : (
-                  `$${selectedProduct.precio.toLocaleString('es-CL')}`
+                  `$${selectedProduct.precioUnitario.toLocaleString('es-CL')}`
                 )}
               </p>
             </div>

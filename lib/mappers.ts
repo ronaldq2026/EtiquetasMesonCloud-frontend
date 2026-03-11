@@ -36,23 +36,21 @@ export function mapDbfToProduct(row: any): Product {
 
   // Precios
   const precioOferta = safeNumber(row?.PRECIO_OFERTA, NaN);
-  const precioNormal = safeNumber(
-    // precio “normal” de referencia
-    !isNaN(precioOferta) ? row?.PRECIO ?? row?.PRECIO1 : (row?.PRECIO ?? row?.PRECIO1),
+  const precioUnitario = safeNumber(
+    // precio "unitario" de referencia (base de POSMAPRE / mapprevt)
+    row?.PRECIO ?? row?.PRECIO1 ?? row?.PRECIO_UNITARIO,
     0
   );
-  const precioBase = !isNaN(precioOferta)
-    ? precioOferta
-    : safeNumber(row?.PRECIO ?? row?.PRECIO1, 0);
+  const precio = !isNaN(precioOferta) ? precioOferta : precioUnitario;
 
   // Oferta (si existe precio oferta válido)
   let oferta: Oferta | undefined = undefined;
 
   if (!isNaN(precioOferta)) {
-    // Calcula % de descuento si hay precioNormal > 0
+    // Calcula % de descuento si hay precioUnitario > 0
     const descuento =
-      precioNormal > 0
-        ? Math.max(0, Math.round((1 - precioOferta / precioNormal) * 100))
+      precioUnitario > 0
+        ? Math.max(0, Math.round((1 - precioOferta / precioUnitario) * 100))
         : 0;
 
     const vigenciaInicio = toISODateOnly(row?.FEC_INICIO ?? row?.INI_OFERTA);
@@ -63,7 +61,7 @@ export function mapDbfToProduct(row: any): Product {
       vigenciaInicio,
       vigenciaFin,
       descuentoPorcentaje: descuento,
-      tipoOferta: "1", // '1' = porcentaje; ajusta si manejas otros tipos
+      tipoOferta: "1",
     };
   }
 
@@ -76,14 +74,15 @@ export function mapDbfToProduct(row: any): Product {
     dosage: String(dosage || ""),
     batch: String(batch || ""),
     expiryDate,
-    manufacturer: laboratorio || "",     // si quieres mantener manufacturer además de laboratorio
-    laboratorio: laboratorio || "",      // mantén ambos por compatibilidad con tu UI
-    precioNormal,
-    precio: precioBase,                  // precio actual (con oferta si aplica)
+    manufacturer: laboratorio || "",
+    laboratorio: laboratorio || "",
+    precioUnitario,
+    precioOferta: !isNaN(precioOferta) ? precioOferta : null,
+    precio,
     stock: safeNumber(row?.STOCK ?? row?.EXISTENCIA, 0),
     categoria: String(row?.CATEGORIA ?? row?.CATEG ?? ""),
-    oferta,                              // puede ser undefined si no hay oferta
-    meson: undefined,                    // completa si tienes flags/columnas de mesón
+    oferta,
+    meson: undefined,
   };
 
   return producto;

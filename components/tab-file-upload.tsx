@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,12 +8,12 @@ import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 
 // Mock: Todos los SKUs disponibles en BD
 const ALL_AVAILABLE_SKUS = [
-  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 14-15', enOferta: true,  precio: 16990 },
+  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 14-15', enOferta: true, precio: 16990 },
   { codigo: '89997001', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO 12-13', enOferta: false, precio: 16990 },
-  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XXL',   enOferta: true,  precio: 19990 },
-  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XL',    enOferta: false, precio: 19990 },
-  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO L',     enOferta: false, precio: 19990 },
-  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO M',     enOferta: true,  precio: 19990 },
+  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XXL', enOferta: true, precio: 19990 },
+  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO XL', enOferta: false, precio: 19990 },
+  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO L', enOferta: false, precio: 19990 },
+  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO M', enOferta: true, precio: 19990 },
 ];
 
 // Mock: Ejemplo de archivo TXT
@@ -62,8 +63,11 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
     skus.forEach(sku => {
       const found = ALL_AVAILABLE_SKUS.find(p => p.codigo === sku);
       if (found) {
-        if (found.enOferta) conOferta.push(found);
-        else sinOferta.push(found);
+        if (found.enOferta) {
+          conOferta.push(found);
+        } else {
+          sinOferta.push(found);
+        }
       } else {
         noEncontrados.push(sku);
       }
@@ -76,10 +80,13 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
 
   const toggleWithOffer = (codigo: string) => {
     const newSelected = new Set(selectedWithOffer);
-    if (newSelected.has(codigo)) newSelected.delete(codigo);
-    else newSelected.add(codigo);
+    if (newSelected.has(codigo)) {
+      newSelected.delete(codigo);
+    } else {
+      newSelected.add(codigo);
+    }
     setSelectedWithOffer(newSelected);
-    setSelectAllWithOffer(newSelected.size === (parseResult?.conOferta.length ?? 0));
+    setSelectAllWithOffer(newSelected.size === parseResult?.conOferta.length);
   };
 
   const toggleSelectAllWithOffer = () => {
@@ -87,7 +94,7 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
       setSelectedWithOffer(new Set());
       setSelectAllWithOffer(false);
     } else {
-      setSelectedWithOffer(new Set(parseResult?.conOferta.map(p => p.codigo) ?? []));
+      setSelectedWithOffer(new Set(parseResult?.conOferta.map(p => p.codigo) || []));
       setSelectAllWithOffer(true);
     }
   };
@@ -107,10 +114,9 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
   };
 
   const handleExport = () => {
-    const skus = parseResult?.sinOferta.map(p => p.codigo) ?? [];
+    const skus = parseResult?.sinOferta.map(p => p.codigo) || [];
     console.log('Exportando SKUs sin oferta:', skus);
     alert(`Exportando ${skus.length} producto(s) sin oferta...`);
-    // Si luego quieres CSV real, aquí podemos generar el archivo y descargarlo.
   };
 
   return (
@@ -120,7 +126,7 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-green-600" />
-            Cargar Archivo de Captura (Etiquetas-RF)
+            Cargar Archivo Etiqueta
           </CardTitle>
           <CardDescription>
             Carga automáticamente los datos desde el archivo etiqueta. Se validarán contra productos en BD.
@@ -132,7 +138,7 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
       <Card className="border-2 border-dashed border-gray-300">
         <CardContent className="pt-6">
           <p className="text-xs text-gray-600 text-center">
-            Leyendo automáticamente desde: E:\fasapos\correo\recibe\ETIQUERF.760
+            Leyendo automáticamente desde: /etiquetas/productos.txt
           </p>
 
           {fileContent && (
@@ -187,17 +193,14 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           </div>
 
-          {/* CON Ofertas (→ NEGRO) */}
+          {/* Con Ofertas */}
           {parseResult.conOferta.length > 0 && (
             <Card>
-              {/* Header neutral (antes estaba rojo) */}
-              <CardHeader className="bg-gray-50 border-b border-gray-200">
+              <CardHeader className="bg-red-50 border-b border-red-200">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-gray-900">
-                    Productos CON Ofertas ({parseResult.conOferta.length})
-                  </CardTitle>
+                  <CardTitle className="text-red-700">Productos CON Ofertas ({parseResult.conOferta.length})</CardTitle>
                   <div className="flex items-center gap-2">
-                    <Checkbox
+                    <Checkbox 
                       id="select-all-offer-file"
                       checked={selectAllWithOffer}
                       onCheckedChange={() => toggleSelectAllWithOffer()}
@@ -208,27 +211,19 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
                   </div>
                 </div>
               </CardHeader>
-
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {parseResult.conOferta.map(product => (
-                    <div
-                      key={product.codigo}
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <Checkbox
+                    <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
+                      <Checkbox 
                         checked={selectedWithOffer.has(product.codigo)}
                         onCheckedChange={() => toggleWithOffer(product.codigo)}
                       />
                       <div className="flex-1">
-                        {/* NOMBRE en NEGRO */}
-                        <p className="font-semibold text-sm text-gray-900">{product.nombre}</p>
+                        <p className="font-semibold text-sm">{product.nombre}</p>
                         <p className="text-xs text-gray-600">SKU: {product.codigo}</p>
                       </div>
-                      {/* PRECIO en NEGRO */}
-                      <span className="text-sm font-bold text-gray-900">
-                        ${product.precio.toLocaleString('es-CL')}
-                      </span>
+                      <span className="text-sm font-bold text-red-600">${product.precio.toLocaleString('es-CL')}</span>
                     </div>
                   ))}
                 </div>
@@ -236,36 +231,21 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           )}
 
-          {/* SIN Ofertas (→ ROJO + bold, sin checkbox) */}
+          {/* Sin Ofertas */}
           {parseResult.sinOferta.length > 0 && (
             <Card>
-              {/* Header énfasis rojo */}
-              <CardHeader className="bg-red-50 border-b border-red-200">
-                <CardTitle className="text-red-700">
-                  Productos SIN Ofertas ({parseResult.sinOferta.length})
-                </CardTitle>
+              <CardHeader className="bg-gray-50 border-b border-gray-200">
+                <CardTitle className="text-gray-700">Productos SIN Ofertas ({parseResult.sinOferta.length})</CardTitle>
               </CardHeader>
-
               <CardContent className="pt-6">
                 <div className="space-y-3">
                   {parseResult.sinOferta.map(product => (
-                    <div
-                      key={product.codigo}
-                      className="flex items-center gap-3 p-3 border rounded-lg bg-red-50/50"
-                    >
-                      {/* Sin checkbox: placeholder para alinear */}
-                      <div className="w-4 h-4" />
-
+                    <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
                       <div className="flex-1">
-                        {/* NOMBRE en ROJO + bold */}
-                        <p className="font-semibold text-sm text-red-700">{product.nombre}</p>
-                        <p className="text-xs text-red-700">SKU: {product.codigo}</p>
+                        <p className="font-semibold text-sm">{product.nombre}</p>
+                        <p className="text-xs text-gray-600">SKU: {product.codigo}</p>
                       </div>
-
-                      {/* PRECIO en ROJO + bold */}
-                      <span className="text-sm font-bold text-red-700">
-                        ${product.precio.toLocaleString('es-CL')}
-                      </span>
+                      <span className="text-sm font-bold text-gray-900">${product.precio.toLocaleString('es-CL')}</span>
                     </div>
                   ))}
                 </div>
@@ -294,9 +274,8 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             </Card>
           )}
 
-          {/* Acciones (pie) */}
+          {/* Acciones */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Imprimir SOLO con ofertas */}
             <Button
               onClick={handlePrintSelected}
               disabled={selectedWithOffer.size === 0}
@@ -304,9 +283,11 @@ export function TabFileUpload({ onPrint }: { onPrint?: (skus: string[]) => void 
             >
               Imprimir Seleccionados ({selectedWithOffer.size})
             </Button>
-
-            {/* Exportar SIN ofertas */}
-            <Button onClick={handleExport} variant="destructive" className="bg-red-600 hover:bg-red-700">
+            <Button
+              onClick={handleExport}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700"
+            >
               Exportar Sin Ofertas ({parseResult.sinOferta.length})
             </Button>
           </div>

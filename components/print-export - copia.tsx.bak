@@ -53,12 +53,77 @@ export function PrintExport({ product, config }: PrintExportProps) {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
 
-        console.log('[v0] Excel cargado - Leyendo SKUs...');
+        const skus = rows
+          .slice(1)
+          .map((row: any) => {
+            const sku = row?.[0];
+            return sku ? String(sku).trim() : null;
+          })
+          .filter((sku): sku is string => !!sku && sku !== 'undefined' && sku.length > 0);
 
-        // Solo lee y guarda - NO enriquece aún
-        // El enriquecimiento ocurre cuando el usuario selecciona un producto
-        setExcelProducts(rows);
-        alert(`✓ Excel cargado: ${rows.length} filas leídas. Ahora busca y selecciona productos.`);
+        console.log('[v0] SKUs extraídos:', skus);
+
+        const productos: Product[] = [];
+        const notFound: string[] = [];
+        const noPrecio: string[] = [];
+
+        for (const sku of skus) {
+          try {
+            const response = await apiClient.enrichProductFromDPOFE(sku);
+            
+            // Si response es null o no tiene producto, no encontró en POSDPOFE
+            if (!response || !response.ok || !response.producto) {
+              notFound.push(sku);
+              continue;
+            }
+
+            const producto = response.producto;
+
+            // Validar que tenga precio
+            const precio = producto.precioOferta ?? producto.precioUnitario;
+            if (precio === undefined || precio === null || precio === 0) {
+              noPrecio.push(sku);
+              continue;
+            }
+
+            // Producto válido - mapear de ProductoPOSDPOFE a Product
+            const productoMapeado: Product = {
+              id: producto.sku,
+              codigo: producto.sku,
+              codigoBarras: producto.sku || '',
+              nombre: producto.descripcionPromo || '',
+              descripcion: producto.descripcionPromo || '',
+              dosage: '',
+              batch: '',
+              expiryDate: producto.vigenciaFin || '',
+              manufacturer: '',
+              laboratorio: '',
+              precioUnitario: producto.precioNormal || producto.precioUnitario || 0,
+              precioOferta: producto.precioOferta || null,
+              precio: producto.precioOferta || producto.precioNormal || producto.precioUnitario || 0,
+              stock: 0,
+              categoria: '',
+              oferta: undefined,
+              meson: undefined,
+            };
+            productos.push(productoMapeado);
+          } catch (err) {
+            console.error(`[v0] Error SKU ${sku}:`, err);
+            notFound.push(sku);
+          }
+        }
+
+        setExcelProducts(productos);
+
+        // Mensajes de estado
+        let mensaje = `✓ Cargados: ${productos.length}`;
+        if (notFound.length > 0) {
+          mensaje += ` | ✗ No en POSDPOFE: ${notFound.length}`;
+        }
+        if (noPrecio.length > 0) {
+          mensaje += ` | ⚠ Sin precio: ${noPrecio.length}`;
+        }
+        alert(mensaje);
       } catch (error) {
         console.error('[v0] Error leyendo Excel:', error);
         alert('Error al leer el archivo Excel');

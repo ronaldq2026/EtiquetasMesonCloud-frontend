@@ -1,0 +1,167 @@
+'use client';
+
+import { useState } from 'react';
+import { useProducts, useSearchProducts } from '@/hooks/useProducts';
+import { Product, mockProducts } from '@/lib/mock-data';
+import { ApiProduct } from '@/lib/api-client';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Search, Loader2 } from 'lucide-react';
+
+interface ProductSearchProps {
+  onProductSelect: (product: Product) => void;
+  selectedProduct?: Product;
+}
+
+function mapApiProductToProduct(product: any): Product {
+  // Handle both ProductoPOSDPOFE y ExcelItem (del Excel cargado)
+  // ExcelItem tiene: {sku, descripcion}
+  // ProductoPOSDPOFE tiene: {sku, descripcionPromo, precioNormal, precioOferta}
+  
+  const sku = product.sku || product.codigo || product.id || '';
+  // Para Excel usa "descripcion", para POSDPOFE usa "descripcionPromo"
+  const nombre = product.descripcionPromo || product.descripcion || product.nombre || '';
+  const precioNormal = product.precioNormal || product.precioUnitario || 0;
+  const precioOferta = product.precioOferta || null;
+
+  return {
+    id: sku,
+    codigo: sku,
+    codigoBarras: sku,
+    nombre: nombre,
+    descripcion: nombre,
+    dosage: '',
+    batch: sku,
+    expiryDate: product.vigenciaFin || '',
+    manufacturer: '',
+    precioUnitario: precioNormal,
+    precioOferta: precioOferta,
+    precio: precioOferta || precioNormal,
+    stock: 0,
+    categoria: '',
+    laboratorio: '',
+    ...(precioOferta && {
+      oferta: {
+        precioOferta: precioOferta,
+        vigenciaInicio: product.vigenciaInicio || '',
+        vigenciaFin: product.vigenciaFin || '',
+        descuentoPorcentaje: product.descuentoPct || 0,
+        tipoOferta: '1',
+      },
+    }),
+  };
+}
+
+export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearchProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // En el nuevo flujo, la búsqueda es sobre el Excel cargado
+  const { results: searchResults, isLoading: isSearching } = useSearchProducts(searchQuery);
+
+  // Cuando hay búsqueda, usa los resultados. Sin búsqueda, lista vacía (esperando que carguen el Excel)
+  const displayProducts = searchQuery.trim() ? searchResults : [];
+
+  const filteredProducts = displayProducts.map(mapApiProductToProduct);
+
+  return (
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <CardTitle>Seleccionar Producto</CardTitle>
+        <CardDescription>Busca por nombre, código, talla o descripción</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Search Input */}
+        <div className="relative">
+          {isSearching ? (
+            <Loader2 className="absolute left-3 top-3 h-4 w-4 text-gray-400 animate-spin" />
+          ) : (
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          )}
+          <Input
+            placeholder="Buscar en Excel cargado..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Product List */}
+        <div className="max-h-80 overflow-y-auto space-y-2">
+          {!searchQuery.trim() ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-sm">Carga un Excel primero, luego busca productos</p>
+            </div>
+          ) : isSearching ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-gray-400" />
+              <p className="text-sm text-gray-500">Buscando en Excel...</p>
+            </div>
+          ) : filteredProducts.length > 0 ? (
+            filteredProducts.map((product: Product) => (
+              <Button
+                key={product.id}
+                variant={selectedProduct?.id === product.id ? 'default' : 'outline'}
+                className="w-full justify-start text-left h-auto py-3 px-4"
+                onClick={() => onProductSelect(product)}
+              >
+                <div className="w-full">
+                  <div className="font-semibold text-sm flex items-center gap-2">
+                    {product.nombre}
+                    {product.oferta && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded">
+                        -{product.oferta.descuentoPorcentaje}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 space-y-0.5">
+                    <div>{product.descripcion}</div>
+                    <div className="flex gap-2 items-center">
+                      {product.precioOferta && product.precioOferta > 0 ? (
+                        <>
+                          <span className="line-through text-gray-400">Normal: ${product.precioUnitario.toLocaleString('es-CL')}</span>
+                          <span className="text-red-600 font-semibold">Oferta: ${product.precioOferta.toLocaleString('es-CL')}</span>
+                        </>
+                      ) : (
+                        <span>Precio: ${product.precioUnitario.toLocaleString('es-CL')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Button>
+            ))
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500">No se encontraron productos en el Excel</p>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Product Summary */}
+        {selectedProduct && (
+          <div className="border-t pt-4 mt-4 space-y-3">
+            <h4 className="font-semibold text-sm mb-2">Producto Seleccionado</h4>
+            <div className="bg-blue-50 p-3 rounded-lg space-y-2 text-sm">
+              <p><span className="font-semibold">SKU:</span> {selectedProduct.codigo}</p>
+              <p><span className="font-semibold">Barra:</span> {selectedProduct.codigoBarras}</p>
+              <p><span className="font-semibold">Descripción:</span> {selectedProduct.descripcion}</p>
+              
+              {/* Pricing Info */}
+              <div className="border-t pt-2 mt-2 space-y-1">
+                <p><span className="font-semibold">Precio Unitario:</span> ${selectedProduct.precioUnitario.toLocaleString('es-CL')}</p>
+                {selectedProduct.precioOferta && selectedProduct.precioOferta > 0 && (
+                  <>
+                    <p><span className="font-semibold text-red-600">Precio Oferta:</span> <span className="text-red-600 font-bold">${selectedProduct.precioOferta.toLocaleString('es-CL')}</span></p>
+                    {selectedProduct.oferta && (
+                      <p><span className="text-xs text-gray-600">Vigencia: {selectedProduct.oferta.vigenciaInicio} al {selectedProduct.oferta.vigenciaFin}</span></p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

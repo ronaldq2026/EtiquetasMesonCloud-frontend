@@ -24,6 +24,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${_geist.className} antialiased`}>
         {children}
+        <Analytics />
       </body>
     </html>
   )

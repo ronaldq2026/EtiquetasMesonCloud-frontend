@@ -62,7 +62,7 @@ export default function Home() {
                 value="file" 
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent px-6 py-4 font-semibold"
               >
-                Cargar Archivo Local (RF)
+                Cargar Archivo Etiqueta
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -139,13 +139,13 @@ export default function Home() {
                   <div>
                     <span className="text-gray-600">Precio:</span>
                     <p className="font-semibold text-gray-900">
-                      {selectedProduct.oferta ? (
+                      {selectedProduct.precioOferta && selectedProduct.precioOferta > 0 ? (
                         <span>
-                          <span className="line-through text-gray-500 mr-2">${selectedProduct.precioNormal.toLocaleString('es-CL')}</span>
-                          <span className="text-red-600">${selectedProduct.precio.toLocaleString('es-CL')}</span>
+                          <span className="line-through text-gray-500 mr-2">${selectedProduct.precioUnitario.toLocaleString('es-CL')}</span>
+                          <span className="text-red-600">${selectedProduct.precioOferta.toLocaleString('es-CL')}</span>
                         </span>
                       ) : (
-                        `$${selectedProduct.precio.toLocaleString('es-CL')}`
+                        `$${selectedProduct.precioUnitario.toLocaleString('es-CL')}`
                       )}
                     </p>
                   </div>

@@ -6,21 +6,12 @@ interface UseProductsOptions {
 }
 
 export function useProducts(options?: UseProductsOptions) {
-  const { data, error, isLoading } = useSWR(
-    'all-products',
-    () => apiClient.getAllProducts(),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      dedupingInterval: 60000,
-      fallback: options?.fallback || [],
-    }
-  );
-
+  // En el nuevo flujo, los productos NO se cargan automáticamente
+  // Se cargan solo cuando el usuario carga el Excel
   return {
-    products: data || [],
-    isLoading,
-    error,
+    products: options?.fallback || [],
+    isLoading: false,
+    error: null,
   };
 }
 
@@ -35,38 +26,6 @@ export function useSearchProducts(query: string) {
 
   return {
     results: data || [],
-    isLoading,
-    error,
-  };
-}
-
-export function useProduct(codigo: string) {
-  const { data, error, isLoading } = useSWR(
-    codigo ? `product-${codigo}` : null,
-    () => codigo ? apiClient.getProduct(codigo) : Promise.resolve(null),
-    {
-      revalidateOnFocus: false,
-    }
-  );
-
-  return {
-    product: data || null,
-    isLoading,
-    error,
-  };
-}
-
-export function useMesonProducts() {
-  const { data, error, isLoading } = useSWR(
-    'meson-products',
-    () => apiClient.getMesonProducts(),
-    {
-      revalidateOnFocus: false,
-    }
-  );
-
-  return {
-    products: data || [],
     isLoading,
     error,
   };

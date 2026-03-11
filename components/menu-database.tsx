@@ -1,4 +1,3 @@
-// components/menu-database.tsx
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -12,103 +11,100 @@ import { RefreshCw } from 'lucide-react';
 export function MenuDatabase() {
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simula la lectura del “Archivo Centralizado”
-  const handleReadCentralFile = async () => {
+  // Simular lectura de BD
+  const handleReadDatabase = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
+    // Simular delay de lectura
+    await new Promise(resolve => setTimeout(resolve, 1000));
     setIsLoading(false);
   };
 
-  // Cruce SKUs del archivo centralizado con mockProducts -> con/sin oferta
+  // Parear BD con ofertas
   const { productsWithOffer, productsWithoutOffer } = useMemo(() => {
-    const setCentral = new Set(simulatedDatabaseProducts);
-    const withOffer = mockProducts.filter(p => setCentral.has(p.codigo) && p.oferta);
-    const withoutOffer = mockProducts.filter(p => setCentral.has(p.codigo) && !p.oferta);
+    const withOffer = mockProducts.filter(p => 
+      simulatedDatabaseProducts.includes(p.codigo) && p.oferta
+    );
+    const withoutOffer = mockProducts.filter(p => 
+      simulatedDatabaseProducts.includes(p.codigo) && !p.oferta
+    );
     return { productsWithOffer: withOffer, productsWithoutOffer: withoutOffer };
   }, []);
 
-  // Exportar CSV para "SIN ofertas"
-  const exportCsv = (rows: typeof productsWithoutOffer) => {
-    const headers = ['SKU', 'Nombre', 'Talla', 'Precio', 'Stock'];
-    const lines = rows.map((r) => [
-      r.codigo ?? '',
-      (r.nombre ?? '').replace(/\n/g, ' '),
-      r.dosage ?? '',
-      typeof r.precio === 'number' ? r.precio : '',
-      typeof r.stock === 'number' ? r.stock : '',
-    ]);
-
-    const csv = [headers, ...lines]
-      .map(cols =>
-        cols.map(v => {
-          const s = String(v ?? '');
-          return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        }).join(';')
-      )
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sin-ofertas-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Encabezado: Archivo Centralizado */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lectura de Archivo Centralizado</CardTitle>
+      {/* Sección de simulación de BD */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Lectura de Base de Datos
+          </CardTitle>
           <CardDescription>
-            Simulación de lectura de SKUs desde un archivo centralizado (respaldado por tabla Oracle).
+            Simulación de lectura desde tabla de base de datos
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleReadCentralFile} disabled={isLoading}>
-              {isLoading ? 'Leyendo…' : 'Leer Archivo Centralizado'}
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Se leyeron <strong>{simulatedDatabaseProducts.length} productos</strong> de la tabla de base de datos.
+            </p>
+            <Button
+              onClick={handleReadDatabase}
+              disabled={isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isLoading ? 'Leyendo BD...' : 'Leer Base de Datos'}
             </Button>
-            <span className="text-sm text-gray-600">
-              Se leyeron <b>{simulatedDatabaseProducts.length}</b> productos del archivo centralizado.
-            </span>
-          </div>
-          <div className="mt-3 text-xs bg-gray-50 border rounded p-2 max-h-32 overflow-auto">
-            <div className="font-medium mb-1">SKUs leídos:</div>
-            <div className="grid grid-cols-3 gap-2">
-              {simulatedDatabaseProducts.map((sku) => (
-                <code key={sku} className="text-gray-700">
-                  {sku}
-                </code>
+            <div className="bg-white p-3 rounded text-xs font-mono space-y-1">
+              <p className="text-gray-600">SKUs leídos de la tabla:</p>
+              {simulatedDatabaseProducts.map(sku => (
+                <div key={sku} className="text-blue-600">{sku}</div>
               ))}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* CON Ofertas: imprimibles y seleccionables */}
+      {/* Grid de productos CON ofertas */}
       <ProductsGrid
-        title={`Productos CON Ofertas (${productsWithOffer.length})`}
         products={productsWithOffer}
-        selectable        // ← checkboxes ON
-        showSelectAll     // ← “Seleccionar Todo” visible
-        variant="with-offer"
-        onExport={undefined}  // no export aquí
+        title="Productos CON Ofertas"
+        description={`${productsWithOffer.length} producto(s) encontrado(s) en la tabla de ofertas`}
+        showOfferBadge={true}
       />
 
-      {/* SIN Ofertas: NO imprimibles → sin checkbox y con botón Exportar CSV */}	  
-	  <ProductsGrid
-		title={`Productos SIN Ofertas (${productsWithoutOffer.length})`}
-		products={productsWithoutOffer}
-		selectable={false}
-		showSelectAll={false}
-		variant="no-offer"          // ✅ CORRECTO
-		onExport={(rows) => exportCsv(rows)}
-	  />
-	  
+      {/* Grid de productos SIN ofertas */}
+      {productsWithoutOffer.length > 0 && (
+        <ProductsGrid
+          products={productsWithoutOffer}
+          title="Productos SIN Ofertas"
+          description={`${productsWithoutOffer.length} producto(s) sin oferta vigente`}
+          showOfferBadge={false}
+        />
+      )}
+
+      {/* Resumen */}
+      <Card className="border-gray-300">
+        <CardHeader>
+          <CardTitle className="text-sm">Resumen de Lectura</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-3 bg-gray-50 rounded">
+              <div className="text-2xl font-bold text-blue-600">{simulatedDatabaseProducts.length}</div>
+              <div className="text-xs text-gray-600">Productos leídos</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded">
+              <div className="text-2xl font-bold text-green-600">{productsWithOffer.length}</div>
+              <div className="text-xs text-gray-600">Con oferta</div>
+            </div>
+            <div className="text-center p-3 bg-orange-50 rounded">
+              <div className="text-2xl font-bold text-orange-600">{productsWithoutOffer.length}</div>
+              <div className="text-xs text-gray-600">Sin oferta</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-``

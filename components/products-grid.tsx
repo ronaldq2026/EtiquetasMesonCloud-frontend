@@ -1,229 +1,193 @@
 'use client';
 
-import * as React from 'react';
+import { useState } from 'react';
 import { Product } from '@/lib/mock-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Printer, Download } from 'lucide-react';
 
-export interface ProductsGridProps {
-  title: string;
+interface ProductsGridProps {
   products: Product[];
+  title: string;
   description?: string;
   showOfferBadge?: boolean;
-
-  /** NUEVO: habilita checkboxes por fila */
-  selectable?: boolean;
-
-  /** NUEVO: muestra “Seleccionar todo” en el header (solo si selectable=true) */
-  showSelectAll?: boolean;
-
-  /** NUEVO: callback opcional para exportar/accionar con la selección */
-  onExport?: (selected: Product[]) => void;
-
-  /** Opcional: define variantes de vista */
-  variant?: 'with-offer' | 'no-offer' | 'default';
 }
 
 export function ProductsGrid({
-  title,
   products,
+  title,
   description,
   showOfferBadge = true,
-  selectable = false,
-  showSelectAll = false,
-  onExport,
-  variant = 'default',
 }: ProductsGridProps) {
-  // Manejamos selección solo si selectable === true
-  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
 
-  const allSelected = selectable && products.length > 0 && selectedIds.length === products.length;
-
-  const toggleAll = () => {
-    if (!selectable) return;
-    setSelectedIds((prev) =>
-      prev.length === products.length
-        ? []
-        : products.map((p) => String((p as any).id ?? (p as any).codigo ?? (p as any).sku ?? '')),
-    );
+  const toggleSelect = (id: string | number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
   };
 
-  const toggleOne = (id: string) => {
-    if (!selectable) return;
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const handleExport = () => {
-    if (!onExport || !selectable) return;
-    const selected = products.filter((p) =>
-      selectedIds.includes(String((p as any).id ?? (p as any).codigo ?? (p as any).sku ?? '')),
-    );
-    onExport(selected);
+  const selectAll = () => {
+    if (selectedIds.size === products.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map(p => p.id || '')));
+    }
   };
 
   const handlePrintSelected = () => {
-    if (!selectable) return;
-    if (selectedIds.length === 0) {
+    if (selectedIds.size === 0) {
       alert('Selecciona al menos un producto');
       return;
     }
-    alert(`Imprimiendo ${selectedIds.length} producto(s)...`);
-    // TODO: integrar con tu flujo /api/labels/print (en lote)
+    alert(`Imprimiendo ${selectedIds.size} producto(s)...`);
+    // TODO: Implementar lógica de impresión
   };
 
   const handlePrintAll = () => {
     alert(`Imprimiendo ${products.length} producto(s)...`);
-    // TODO: integrar con tu flujo /api/labels/print (en lote)
+    // TODO: Implementar lógica de impresión
   };
 
-  if (!products || products.length === 0) {
+  if (products.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500">No hay productos para mostrar</p>
+      <Card className="border-dashed">
+        <CardContent className="py-12 text-center">
+          <p className="text-gray-500">No hay productos para mostrar</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            {description ? <CardDescription>{description}</CardDescription> : null}
-          </div>
-
-          {/* Acciones de cabecera */}
-          <div className="flex items-center gap-2">
-            {onExport ? (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">{title}</CardTitle>
+          {description && <CardDescription>{description}</CardDescription>}
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Acciones */}
+            <div className="flex gap-2 flex-wrap">
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
-                onClick={handleExport}
-                disabled={!selectable || selectedIds.length === 0}
-                title={selectable ? `Exportar selección (${selectedIds.length})` : 'Exportar (deshabilitado)'}
+                onClick={selectAll}
+                className="text-xs"
               >
-                Exportar{selectable ? ` (${selectedIds.length})` : ''}
+                {selectedIds.size === products.length ? 'Deseleccionar Todo' : 'Seleccionar Todo'} ({products.length})
               </Button>
-            ) : null}
+              
+              <Button
+                size="sm"
+                onClick={handlePrintSelected}
+                disabled={selectedIds.size === 0}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-xs"
+              >
+                <Printer className="h-3 w-3" />
+                Imprimir Seleccionados ({selectedIds.size})
+              </Button>
 
-            <Button variant="outline" size="sm" onClick={handlePrintAll}>
-              Imprimir Todo ({products.length})
-            </Button>
+              <Button
+                size="sm"
+                onClick={handlePrintAll}
+                variant="default"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-xs"
+              >
+                <Printer className="h-3 w-3" />
+                Imprimir Todo ({products.length})
+              </Button>
+            </div>
+
+            {/* Grid de productos */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="w-12 px-4 py-2 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === products.length && products.length > 0}
+                          onChange={selectAll}
+                          className="w-4 h-4 rounded"
+                        />
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold">SKU</th>
+                      <th className="px-4 py-2 text-left font-semibold">Nombre</th>
+                      <th className="px-4 py-2 text-left font-semibold">Talla</th>
+                      <th className="px-4 py-2 text-right font-semibold">Precio</th>
+                      {showOfferBadge && <th className="px-4 py-2 text-left font-semibold">Oferta</th>}
+                      <th className="px-4 py-2 text-center font-semibold">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {products.map((product) => (
+                      <tr
+                        key={product.id}
+                        className={`hover:bg-gray-50 ${
+                          selectedIds.has(product.id || '') ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <td className="w-12 px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(product.id || '')}
+                            onChange={() => toggleSelect(product.id || '')}
+                            className="w-4 h-4 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{product.codigo}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{product.nombre}</div>
+                          <div className="text-xs text-gray-500">{product.descripcion}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{product.dosage}</td>
+                        <td className="px-4 py-3 text-right font-semibold">
+                          {product.precioOferta && product.precioOferta > 0 ? (
+                            <div className="space-y-0.5">
+                              <div className="line-through text-gray-400 text-xs">
+                                ${product.precioUnitario.toLocaleString('es-CL')}
+                              </div>
+                              <div className="text-red-600">
+                                ${product.precioOferta.toLocaleString('es-CL')}
+                              </div>
+                            </div>
+                          ) : (
+                            `$${product.precioUnitario.toLocaleString('es-CL')}`
+                          )}
+                        </td>
+                        {showOfferBadge && (
+                          <td className="px-4 py-3">
+                            {product.oferta ? (
+                              <span className="inline-block bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">
+                                -{product.oferta.descuentoPorcentaje}%
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </td>
+                        )}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm font-medium ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {product.stock}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Controles de selección (solo si selectable) */}
-        {selectable && (
-          <div className="flex items-center gap-3 text-sm">
-            {showSelectAll && (
-              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                {allSelected ? 'Deseleccionar Todo' : 'Seleccionar Todo'} ({products.length})
-              </label>
-            )}
-            <span className="text-gray-500">Seleccionados: {selectedIds.length}</span>
-            <Button size="sm" onClick={handlePrintSelected} disabled={selectedIds.length === 0}>
-              Imprimir Seleccionados
-            </Button>
-          </div>
-        )}
-      </CardHeader>
-
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm border-separate border-spacing-y-1">
-          <thead className="text-left text-gray-600">
-            <tr>
-              {selectable && <th className="w-10 px-2">Sel</th>}
-              <th>SKU</th>
-              <th>Nombre</th>
-              <th>Talla</th>
-              <th>Precio</th>
-              {showOfferBadge && <th>Oferta</th>}
-              <th>Stock</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => {
-              const id = String((p as any).id ?? (p as any).codigo ?? (p as any).sku ?? '');
-              const checked = selectable && selectedIds.includes(id);
-              const precioNormal = (p as any).precioNormal ?? (p as any).precio;
-              const precio = (p as any).precio ?? 0;
-              const hasOffer = !!(p as any).oferta || (precioNormal && precio && precio < precioNormal);
-              const descuentoPct = (p as any).oferta?.descuentoPorcentaje ?? null;
-
-              return (
-                <tr key={id} className="bg-white hover:bg-gray-50">
-                  {selectable && (
-                    <td className="px-2 align-top">
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={() => toggleOne(id)}
-                        aria-label={`Seleccionar ${id}`}
-                      />
-                    </td>
-                  )}
-
-                  <td className="align-top">{(p as any).codigo ?? (p as any).sku ?? '-'}</td>
-
-                  <td className="align-top">
-                    {(p as any).nombre ?? '-'}
-                    {p?.descripcion ? (
-                      <div className="text-xs text-gray-500">{(p as any).descripcion}</div>
-                    ) : null}
-                  </td>
-
-                  <td className="align-top">{(p as any).dosage ?? '-'}</td>
-
-                  <td className="align-top">
-                    {hasOffer ? (
-                      <div className="space-y-0.5">
-                        <div className="line-through text-gray-400 text-xs">
-                          ${Number(precioNormal).toLocaleString('es-CL')}
-                        </div>
-                        <div className="font-semibold">
-                          ${Number(precio).toLocaleString('es-CL')}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="font-semibold">
-                        ${Number(precio).toLocaleString('es-CL')}
-                      </div>
-                    )}
-                  </td>
-
-                  {showOfferBadge && (
-                    <td className="align-top">
-                      {hasOffer ? (
-                        <span className="inline-block rounded bg-red-100 text-red-700 px-2 py-0.5 text-xs">
-                          -{descuentoPct ?? Math.max(0, Math.round((1 - precio / precioNormal) * 100))}%
-                        </span>
-                      ) : (
-                        <span className="inline-block rounded bg-gray-100 text-gray-500 px-2 py-0.5 text-xs">
-                          -
-                        </span>
-                      )}
-                    </td>
-                  )}
-
-                  <td className="align-top">
-                    <span className={Number((p as any).stock ?? 0) > 0 ? 'text-green-600' : 'text-red-600'}>
-                      {Number((p as any).stock ?? 0)}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
