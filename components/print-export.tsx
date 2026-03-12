@@ -1,338 +1,338 @@
-'use client';
+'use client'
 
-import { useRef, useState } from 'react';
-import { Product, LabelConfig } from '@/lib/mock-data';
-import { validateLabelConfig } from '@/lib/validation';
-import { apiClient } from '@/lib/api-client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Printer, Download, AlertCircle, CheckCircle, Loader } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { useRef, useState } from 'react'
+import { Product, LabelConfig } from '@/lib/mock-data'
+import { validateLabelConfig } from '@/lib/validation'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+import { Printer, Download, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface PrintExportProps {
-  product: Product;
-  config: LabelConfig;
+  product: Product | null
+  config: LabelConfig
 }
 
 export function PrintExport({ product, config }: PrintExportProps) {
-  // Validar que el producto existe y tiene datos básicos
-  if (!product || !product.precioUnitario) {
+
+  const printRef = useRef<HTMLDivElement>(null)
+
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [quantity, setQuantity] = useState(1)
+
+  if (!product) {
     return (
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <CardTitle>Imprimir y Exportar</CardTitle>
-          <CardDescription>Carga y gestiona la impresión de etiquetas</CardDescription>
+      <Card>
+        <CardHeader>
+          <CardTitle>Imprimir</CardTitle>
+          <CardDescription>Selecciona un producto</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-gray-500 text-center py-4">Selecciona un producto para imprimir</p>
-        </CardContent>
       </Card>
-    );
+    )
   }
 
-  const printRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [excelProducts, setExcelProducts] = useState<Product[]>([]);
+  const p: Product = product
 
-  const handleLoadExcel = async () => {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.xlsx,.xls,.csv';
-    fileInput.onchange = async (e: any) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const precioFinal = p.precioOferta ?? p.precioUnitario ?? 0
 
-      setLoading(true);
-      try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
+  const tieneOferta =
+    p.precioOferta &&
+    p.precioUnitario &&
+    p.precioOferta < p.precioUnitario
 
-        console.log('[v0] Excel cargado - Leyendo SKUs...');
+  function validate() {
 
-        // Solo lee y guarda - NO enriquece aún
-        // El enriquecimiento ocurre cuando el usuario selecciona un producto
-        setExcelProducts(rows);
-        alert(`✓ Excel cargado: ${rows.length} filas leídas. Ahora busca y selecciona productos.`);
-      } catch (error) {
-        console.error('[v0] Error leyendo Excel:', error);
-        alert('Error al leer el archivo Excel');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fileInput.click();
-  };
+    const errors = validateLabelConfig(config)
 
-  const handlePrint = () => {
-    const errors = validateLabelConfig(config);
     if (errors.length > 0) {
-      setValidationErrors(errors.map(e => e.message));
-      return;
+      setValidationErrors(errors.map(e => e.message))
+      return false
     }
-    setValidationErrors([]);
 
-    const printContent = printRef.current;
-    if (!printContent) return;
+    setValidationErrors([])
+    return true
+  }
 
-    const printWindow = window.open('', '', 'width=800,height=600');
-    if (!printWindow) return;
+  // -------------------------
+  // IMPRIMIR NORMAL
+  // -------------------------
 
-    const styles = `
+  function handlePrint() {
+
+    if (!validate()) return
+
+    const content = printRef.current
+    if (!content) return
+
+    const win = window.open('', '', 'width=800,height=600')
+
+    if (!win) return
+
+    win.document.write(`
+      <html>
+      <head>
+      <title>Imprimir Etiqueta</title>
       <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        body {
-          font-family: Arial, sans-serif;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 100vh;
-          padding: 20px;
-        }
-        @media print {
-          body {
-            padding: 0;
-          }
-        }
-      </style>
-    `;
-
-    printWindow.document.write(
-      '<html><head>' +
-      '<title>Imprimir Etiqueta</title>' +
-      styles +
-      '</head><body>' +
-      printContent.innerHTML +
-      '</body></html>'
-    );
-    printWindow.document.close();
-    printWindow.print();
-  };
-
-  const handleExportPNG = () => {
-    const canvas = document.createElement('canvas');
-    const mmToPx = 3.78;
-    canvas.width = config.width * mmToPx;
-    canvas.height = config.height * mmToPx;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = config.backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = config.textColor;
-    ctx.textAlign = 'center';
-
-    const padding = 10;
-    const lineHeight = config.fontSize + 4;
-    let y = padding + config.fontSize;
-
-    const lines: string[] = [];
-    
-    // SOLO campos permitidos
-    lines.push(product.descripcion);
-    lines.push(`SKU: ${product.codigo}`);
-    lines.push(product.codigoBarras);
-    
-    if (product.precioOferta && product.precioOferta > 0) {
-      lines.push(`Normal: $${product.precioUnitario.toLocaleString('es-CL')}`);
-      lines.push(`Oferta: $${product.precioOferta.toLocaleString('es-CL')}`);
-      if (product.oferta?.vigenciaFin) {
-        lines.push(`Vigencia: ${product.oferta.vigenciaFin}`);
+      body{
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+        justify-content:center;
+        font-family:Arial;
       }
-    } else {
-      lines.push(`$${product.precioUnitario.toLocaleString('es-CL')}`);
+      </style>
+      </head>
+      <body>
+      ${content.innerHTML.repeat(quantity)}
+      </body>
+      </html>
+    `)
+
+    win.document.close()
+    win.print()
+  }
+
+  // -------------------------
+  // IMPRIMIR ZPL (ZEBRA)
+  // -------------------------
+	async function handlePrintZPL() {
+
+  if (!product) return
+
+  const sku = (product as any).sku ?? p.codigo
+  const codigoBarras = (product as any).ean13 ?? sku
+
+  const payload = {
+    precioAntes: p.precioUnitario,
+    precioAhora: p.precioOferta ?? p.precioUnitario,
+    producto: p.descripcion,
+    subtitulo: p.descripcion,
+    sku,
+    codigoBarras,
+    cantidad: quantity
+  }
+
+  try {
+
+    const res = await fetch("http://localhost:3000/api/labels/print", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-token": "MI_TOKEN_DEMO_123"
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`)
     }
 
-    lines.forEach((line, idx) => {
-      const fontSize = idx === 0 ? config.fontSize + 2 : config.fontSize;
-      ctx.font = `${fontSize}px Arial`;
-      ctx.fillText(line, canvas.width / 2, y);
-      y += lineHeight;
-    });
+    const data = await res.json()
 
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = `label_${product.codigo}_${Date.now()}.png`;
-    link.click();
-  };
+    if (data.ok) {
+      alert("Etiqueta enviada a Zebra 🖨️")
+    } else {
+      alert("Error imprimiendo etiqueta")
+    }
+
+  } catch (err) {
+
+    console.error(err)
+    alert("No se pudo conectar con el servidor de impresión")
+
+  }
+
+}
+
+
+  // -------------------------
+  // EXPORTAR PNG
+  // -------------------------
+
+  function handleExportPNG() {
+
+    const canvas = document.createElement('canvas')
+
+    const mmToPx = 3.78
+
+    canvas.width = config.width * mmToPx
+    canvas.height = config.height * mmToPx
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.fillStyle = config.backgroundColor
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    ctx.fillStyle = config.textColor
+    ctx.textAlign = 'center'
+
+    let y = 40
+
+    const lines: string[] = []
+
+    lines.push(p.descripcion ?? '')
+    lines.push(`SKU: ${p.codigo}`)
+
+    if (tieneOferta) {
+
+      lines.push(`Normal: $${p.precioUnitario}`)
+      lines.push(`Oferta: $${p.precioOferta}`)
+
+    } else {
+
+      lines.push(`$${precioFinal}`)
+
+    }
+
+    lines.forEach((line, i) => {
+
+      const size = i === 0 ? config.fontSize + 2 : config.fontSize
+
+      ctx.font = `${size}px Arial`
+
+      ctx.fillText(line, canvas.width / 2, y)
+
+      y += config.fontSize + 10
+
+    })
+
+    const link = document.createElement('a')
+
+    link.href = canvas.toDataURL('image/png')
+    link.download = `label_${p.codigo}.png`
+
+    link.click()
+  }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
+
+    <Card>
+
+      <CardHeader>
         <CardTitle>Imprimir y Exportar</CardTitle>
-        <CardDescription>Carga y gestiona la impresión de etiquetas</CardDescription>
+        <CardDescription>
+          Genera etiquetas del producto seleccionado
+        </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        {validationErrors.length > 0 && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-2">
-            <div className="flex items-center gap-2 text-red-700 font-semibold">
-              <AlertCircle className="h-5 w-5" />
-              Configuración incompleta
-            </div>
-            <ul className="space-y-1 ml-7">
-              {validationErrors.map((error, idx) => (
-                <li key={idx} className="text-sm text-red-600">�� {error}</li>
-              ))}
-            </ul>
+
+        {validationErrors.length > 0 ? (
+
+          <div className="p-3 bg-red-50 border border-red-200 rounded flex gap-2 text-red-700">
+            <AlertCircle size={16}/>
+            {validationErrors.join(', ')}
           </div>
+
+        ) : (
+
+          <div className="p-3 bg-green-50 border border-green-200 rounded flex gap-2 text-green-700">
+            <CheckCircle size={16}/>
+            Configuración válida
+          </div>
+
         )}
 
-        {validationErrors.length === 0 && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
-            <CheckCircle className="h-4 w-4" />
-            Configuración válida - Listo para imprimir
-          </div>
-        )}
+        <div className="space-y-2">
 
-        <Button
-          onClick={handleLoadExcel}
-          disabled={loading}
-          className="w-full bg-gray-800 hover:bg-gray-900 text-white"
-        >
-          {loading ? (
-            <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              Cargando Excel...
-            </>
-          ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Cargar Excel de Imprimibles
-            </>
-          )}
-        </Button>
+          <Label>Cantidad de etiquetas</Label>
 
-        {excelProducts.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
-            <p className="font-semibold text-green-700">✓ {excelProducts.length} productos cargados</p>
-            <div className="max-h-40 overflow-y-auto space-y-1">
-              {excelProducts
-                .filter((p) => p && p.codigo)
-                .map((p) => {
-                  const precio = p.precioOferta ?? p.precioUnitario ?? 1;
-                  return (
-                    <div key={p.codigo} className="text-xs text-green-600">
-                      • {p.nombre || 'Producto sin nombre'} (SKU: {p.codigo || 'N/A'}) - 
-                      ${(precio).toLocaleString('es-CL')}
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
+          <Input
+            type="number"
+            min="1"
+            max="200"
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+          />
+
+        </div>
+
+        {/* BOTONES */}
+
+        <div className="grid grid-cols-3 gap-2">
+
+          <Button
+            onClick={handlePrint}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Printer className="mr-2 h-4 w-4"/>
+            Imprimir
+          </Button>
+
+          <Button
+            onClick={handlePrintZPL}
+            variant="outline"
+          >
+            Imprimir Zebra
+          </Button>
+
+          <Button
+            onClick={handleExportPNG}
+            variant="outline"
+          >
+            <Download className="mr-2 h-4 w-4"/>
+            Exportar PNG
+          </Button>
+
+        </div>
+
+        {/* TEMPLATE OCULTO */}
 
         <div ref={printRef} style={{ display: 'none' }}>
+
           <div
             style={{
               width: `${config.width}mm`,
               height: `${config.height}mm`,
               backgroundColor: config.backgroundColor,
               color: config.textColor,
-              padding: '8px',
               fontFamily: 'Arial',
               fontSize: `${config.fontSize}px`,
               textAlign: 'center',
-              border: '1px solid #ccc',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              padding: '8px',
+              border: '1px solid #ccc'
             }}
           >
-            {/* Descripción del producto */}
-            <div style={{ fontWeight: 'bold', fontSize: `${config.fontSize + 2}px`, marginBottom: '4px' }}>
-              {product.descripcion}
-            </div>
-            
-            {/* SKU */}
-            <div style={{ fontSize: `${config.fontSize}px`, marginBottom: '3px' }}>
-              SKU: {product.codigo}
-            </div>
-            
-            {/* Barra */}
-            <div style={{ fontSize: `${config.fontSize}px`, marginBottom: '8px' }}>
-              {product.codigoBarras}
+
+            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+              {p.descripcion}
             </div>
 
-            {/* Precios */}
-            <div style={{ marginTop: '8px', width: '100%' }}>
-              {product.precioOferta && product.precioOferta > 0 ? (
-                <>
-                  <div style={{ fontSize: `${config.fontSize - 1}px`, textDecoration: 'line-through', color: '#666', marginBottom: '2px' }}>
-                    Normal: ${product.precioUnitario.toLocaleString('es-CL')}
-                  </div>
-                  <div style={{ fontSize: `${config.fontSize + 1}px`, fontWeight: 'bold', color: 'red', marginBottom: '2px' }}>
-                    Oferta: ${product.precioOferta.toLocaleString('es-CL')}
-                  </div>
-                  {product.oferta?.vigenciaFin && (
-                    <div style={{ fontSize: `${config.fontSize - 2}px`, marginTop: '2px' }}>
-                      Vigencia: {product.oferta.vigenciaFin}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div style={{ fontSize: `${config.fontSize + 1}px`, fontWeight: 'bold' }}>
-                  ${product.precioUnitario.toLocaleString('es-CL')}
+            <div>
+              SKU: {p.codigo}
+            </div>
+
+            {tieneOferta ? (
+
+              <>
+                <div style={{ textDecoration: 'line-through', color: '#666' }}>
+                  ${p.precioUnitario}
                 </div>
-              )}
-            </div>
+
+                <div style={{ color: 'red', fontWeight: 'bold' }}>
+                  ${p.precioOferta}
+                </div>
+              </>
+
+            ) : (
+
+              <div style={{ fontWeight: 'bold' }}>
+                ${precioFinal}
+              </div>
+
+            )}
+
           </div>
+
         </div>
 
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-        <div className="space-y-2">
-          <Label htmlFor="quantity" className="text-sm font-semibold">
-            Cantidad
-          </Label>
-          <Input
-            id="quantity"
-            type="number"
-            defaultValue="1"
-            min="1"
-            max="100"
-            className="text-sm"
-          />
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            onClick={handlePrint}
-            disabled={validationErrors.length > 0}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Printer className="mr-1 h-4 w-4" />
-            Imprimir Etiqueta
-          </Button>
-          <Button
-            disabled={validationErrors.length > 0}
-            variant="outline"
-            className="text-sm border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Exportar ZPL
-          </Button>
-          <Button
-            onClick={handleExportPNG}
-            disabled={validationErrors.length > 0}
-            variant="outline"
-            className="text-sm border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Exportar PNG
-          </Button>
-        </div>
       </CardContent>
-    </Card>
-  );
-}
 
+    </Card>
+
+  )
+}

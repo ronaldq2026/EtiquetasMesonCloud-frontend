@@ -1,213 +1,200 @@
 'use client';
 
-import { useState } from 'react';
-import { useSearchProducts } from '@/hooks/useProducts';
-import { Product } from '@/lib/mock-data';
-import { apiClient } from '@/lib/api-client';
+import { useEffect, useState } from 'react';
+import type { Product } from '@/lib/mock-data';
 
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, AlertTriangle } from 'lucide-react';
+
+import {
+  searchExcel,
+  enrichFromDPOFE,
+  type ExcelItem,
+  type ProductoPOSDPOFE,
+} from '@/lib/api';
+
+import { ExcelUploader } from '@/components/excel-uploader';
 
 interface ProductSearchProps {
   onProductSelect: (product: Product) => void;
   selectedProduct?: Product;
 }
 
-function mapApiProductToProduct(product: any): Product {
-  const sku = product.sku;
+function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product {
 
-  const precioNormal = product.precioUnitario ?? product.precioNormal ?? 0;
-  const precioOferta = product.precioOferta ?? null;
+  const precioNormal = oferta.precioNormal ?? 0;
+  const precioOferta = oferta.precioOferta ?? null;
 
   return {
-    id: sku,
-    codigo: sku,
-    codigoBarras: product.ean13 || sku,
+    id: oferta.sku,
 
-    nombre: product.descripcion || '',
-    descripcion: product.descripcion || '',
+    codigo: oferta.sku,
+    codigoBarras: '',
+    nombre: excel.descripcion ?? oferta.descripcionPromo ?? '',
+    descripcion: excel.descripcion ?? oferta.descripcionPromo ?? '',
 
     dosage: '',
-    batch: sku,
-    expiryDate: product.vigenciaFin || '',
+    batch: '',
+    expiryDate: oferta.vigenciaFin ?? '',
     manufacturer: '',
 
     precioUnitario: precioNormal,
     precioOferta: precioOferta,
-    precio: precioOferta || precioNormal,
+    precio: precioOferta ?? precioNormal,
 
     stock: 0,
     categoria: '',
-    laboratorio: product.marca || '',
+    laboratorio: '',
 
     ...(precioOferta && {
       oferta: {
         precioOferta: precioOferta,
-        vigenciaInicio: product.vigenciaInicio || '',
-        vigenciaFin: product.vigenciaFin || '',
-        descuentoPorcentaje: product.descuentoPct || 0,
+        descuentoPorcentaje: oferta.descuentoPct ?? 0,
+        vigenciaFin: oferta.vigenciaFin ?? '',
+        vigenciaInicio: oferta.vigenciaInicio ?? '',
         tipoOferta: '1',
-      },
-    }),
+      }
+    })
   };
 }
 
 export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearchProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loadingSku, setLoadingSku] = useState<string | null>(null);
 
-  const { results, isLoading } = useSearchProducts(searchQuery);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  async function handleSelect(product: any) {
-    try {
-      setLoadingSku(product.sku);
+  const [items, setItems] = useState<ExcelItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-      const resp = await apiClient.enrichProductFromDPOFE(product.sku);
+  useEffect(() => {
 
-      if (resp?.producto) {
-        const enriched = mapApiProductToProduct(resp.producto);
-        onProductSelect(enriched);
-      } else {
-        const fallback = mapApiProductToProduct(product);
-        onProductSelect(fallback);
+    const term = query.trim();
+
+    if (!term) {
+      setItems([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+
+      try {
+
+        setLoading(true);
+        const data = await searchExcel(term);
+
+        setItems(data ?? []);
+
+      } catch (err: any) {
+
+        setError(err?.message || 'Error buscando Excel');
+
+      } finally {
+        setLoading(false);
       }
 
-    } catch (err) {
-      console.error('Error consultando POSDPOFE', err);
+    }, 300);
 
-      const fallback = mapApiProductToProduct(product);
-      onProductSelect(fallback);
+    return () => clearTimeout(timeout);
+
+  }, [query]);
+
+  async function handleSelectExcelItem(it: ExcelItem) {
+
+    try {
+
+      setLoading(true);
+
+      const resp = await enrichFromDPOFE(it.sku);
+
+      if (!resp?.producto) {
+        setError('Producto no encontrado en POSDPOFE');
+        return;
+      }
+
+      const product = mapOfertaToProduct(resp.producto, it);
+
+      onProductSelect(product);
+
+    } catch (e: any) {
+
+      setError(e?.message || 'Error validando producto');
 
     } finally {
-      setLoadingSku(null);
+      setLoading(false);
     }
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
+    <Card>
+
+      <CardHeader>
         <CardTitle>Seleccionar Producto</CardTitle>
         <CardDescription>
-          Busca productos del Excel y obtiene precios desde POSDPOFE
+          Busca dentro del Excel cargado
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
 
-        {/* BUSCADOR */}
+        <ExcelUploader userName="Ronald Quiroga" />
 
         <div className="relative">
-          {isLoading ? (
-            <Loader2 className="absolute left-3 top-3 h-4 w-4 animate-spin text-gray-400" />
-          ) : (
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          )}
+
+          {loading
+            ? <Loader2 className="absolute left-3 top-3 h-4 w-4 animate-spin" />
+            : <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          }
 
           <Input
-            placeholder="Buscar producto en Excel..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar SKU o descripción..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             className="pl-10"
           />
-        </div>
-
-        {/* RESULTADOS */}
-
-        <div className="max-h-80 overflow-y-auto space-y-2">
-
-          {!searchQuery.trim() && (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              Escribe para buscar en el Excel cargado
-            </div>
-          )}
-
-          {isLoading && (
-            <div className="text-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-gray-400" />
-              <p className="text-sm text-gray-500">Buscando en Excel...</p>
-            </div>
-          )}
-
-          {!isLoading && results?.length > 0 && results.map((item: any) => {
-
-            const selected = selectedProduct?.codigo === item.sku;
-
-            return (
-              <Button
-                key={item.sku}
-                variant={selected ? 'default' : 'outline'}
-                className="w-full justify-start text-left h-auto py-3 px-4"
-                onClick={() => handleSelect(item)}
-              >
-
-                <div className="w-full">
-
-                  <div className="font-semibold text-sm">
-                    {item.descripcion}
-                  </div>
-
-                  <div className="text-xs text-gray-500">
-                    SKU: {item.sku}
-                  </div>
-
-                  {loadingSku === item.sku && (
-                    <div className="text-xs text-blue-600 mt-1">
-                      consultando POSDPOFE...
-                    </div>
-                  )}
-
-                </div>
-
-              </Button>
-            );
-
-          })}
-
-          {!isLoading && searchQuery && results?.length === 0 && (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              No se encontraron productos
-            </div>
-          )}
 
         </div>
 
-        {/* PRODUCTO SELECCIONADO */}
-
-        {selectedProduct && (
-          <div className="border-t pt-4 mt-4 space-y-2 text-sm">
-
-            <h4 className="font-semibold">Producto Seleccionado</h4>
-
-            <div className="bg-blue-50 p-3 rounded-lg space-y-1">
-
-              <p>
-                <strong>SKU:</strong> {selectedProduct.codigo}
-              </p>
-
-              <p>
-                <strong>Descripción:</strong> {selectedProduct.descripcion}
-              </p>
-
-              <p>
-                <strong>Precio:</strong>{' '}
-                ${selectedProduct.precioUnitario.toLocaleString('es-CL')}
-              </p>
-
-              {selectedProduct.precioOferta && (
-                <p className="text-red-600 font-semibold">
-                  Oferta: ${selectedProduct.precioOferta.toLocaleString('es-CL')}
-                </p>
-              )}
-
-            </div>
-
+        {error && (
+          <div className="text-red-600 text-sm flex gap-2 items-center">
+            <AlertTriangle size={16} />
+            {error}
           </div>
         )}
 
+        <div className="max-h-80 overflow-y-auto space-y-2">
+
+          {items.map((it) => (
+
+            <Button
+              key={it.sku}
+              variant={selectedProduct?.codigo === it.sku ? 'default' : 'outline'}
+              className="w-full justify-start text-left h-auto py-3 px-4"
+              onClick={() => handleSelectExcelItem(it)}
+            >
+
+              <div>
+
+                <div className="font-semibold text-sm">
+                  {it.descripcion}
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  SKU: {it.sku}
+                </div>
+
+              </div>
+
+            </Button>
+
+          ))}
+
+        </div>
+
       </CardContent>
+
     </Card>
   );
 }

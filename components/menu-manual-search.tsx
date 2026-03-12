@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Product, defaultLabelConfig } from '@/lib/mock-data';
-import { apiClient } from '@/lib/api-client';
 import { LabelPreview } from '@/components/label-preview';
 import { ConfigPanel } from '@/components/config-panel';
 import { ProductSearch } from '@/components/product-search';
@@ -16,72 +15,43 @@ interface MenuManualSearchProps {
 }
 
 export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
+
   const [selectedProduct, setSelectedProduct] = useState<Product>(initialProduct);
   const [labelConfig, setLabelConfig] = useState<LabelConfig>(defaultLabelConfig);
-  const [loading, setLoading] = useState(false);
 
-  // Cuando el usuario selecciona un producto, enriquecerlo con POSDPOFE
-  const handleProductSelect = async (product: Product) => {
-    setLoading(true);
-    try {
-      console.log('[v0] Seleccionado producto:', product.codigo);
-      const result = await apiClient.enrichProductFromDPOFE(product.codigo);
-      console.log('[v0] Respuesta del backend:', result);
-      
-      if (result?.ok && result?.producto) {
-        const enriched: Product = {
-          ...product,
-          descripcion: result.producto.descripcion || result.producto.descripcionPromo || product.descripcion,
-          codigoBarras: result.producto.ean13 || product.codigoBarras,
-          precioUnitario: result.producto.precioUnitario || 0,
-          precioOferta: result.producto.precioOferta || null,
-          precio: result.producto.precioOferta || result.producto.precioUnitario || 0,
-          ...(result.producto.precioOferta && {
-            oferta: {
-              precioOferta: result.producto.precioOferta,
-              vigenciaInicio: result.producto.vigenciaInicio || '',
-              vigenciaFin: result.producto.vigenciaFin || '',
-              descuentoPorcentaje: result.producto.descuentoPct || 0,
-              tipoOferta: '1',
-            },
-          }),
-        };
-        console.log('[v0] Producto enriquecido:', enriched);
-        setSelectedProduct(enriched);
-      } else {
-        console.log('[v0] No se encontró en POSDPOFE, usando producto del Excel');
-        setSelectedProduct(product);
-      }
-    } catch (error) {
-      console.error('[v0] Error enriqueciendo:', error);
-      setSelectedProduct(product);
-    } finally {
-      setLoading(false);
-    }
+  /**
+   * El producto ya viene enriquecido desde ProductSearch
+   */
+  const handleProductSelect = (product: Product) => {
+    console.log('[MenuManualSearch] Producto seleccionado:', product);
+    setSelectedProduct(product);
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Left Sidebar - Product Search & Configuration */}
+
+      {/* Sidebar */}
       <div className="lg:col-span-1 space-y-6">
+
         <ProductSearch
           selectedProduct={selectedProduct}
           onProductSelect={handleProductSelect}
         />
-        
+
         <Tabs defaultValue="config" className="w-full">
+
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="config">Configuración</TabsTrigger>
             <TabsTrigger value="builder">Constructor</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="config" className="mt-4">
             <ConfigPanel
               config={labelConfig}
               onConfigChange={setLabelConfig}
             />
           </TabsContent>
-          
+
           <TabsContent value="builder" className="mt-4">
             <LabelBuilder
               product={selectedProduct}
@@ -89,56 +59,81 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
               onConfigChange={setLabelConfig}
             />
           </TabsContent>
+
         </Tabs>
       </div>
 
-      {/* Right Content - Preview & Print */}
+      {/* Preview + Print */}
       <div className="lg:col-span-2 space-y-6">
-        {/* Preview Section */}
+
         <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Vista Previa de Etiqueta</h2>
+
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Vista Previa de Etiqueta
+          </h2>
+
           <div className="flex justify-center bg-gray-50 rounded-lg p-8 min-h-96">
+
             <LabelPreview
               product={selectedProduct}
               config={labelConfig}
             />
+
           </div>
         </div>
 
-        {/* Print & Export Section */}
         <PrintExport
           product={selectedProduct}
           config={labelConfig}
         />
 
-        {/* Quick Info */}
-        <div className={`rounded-lg p-6 border ${selectedProduct.oferta ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'}`}>
-          <h3 className="font-semibold text-gray-900 mb-3">Configuración Actual de Etiqueta</h3>
+        {/* INFO */}
+
+        <div className={`rounded-lg p-6 border ${selectedProduct.oferta
+            ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+          }`}>
+
+          <h3 className="font-semibold text-gray-900 mb-3">
+            Configuración Actual de Etiqueta
+          </h3>
+
           <div className="grid grid-cols-2 gap-4 text-sm">
+
             <div>
               <span className="text-gray-600">Producto:</span>
-              <p className="font-semibold text-gray-900">{selectedProduct.nombre}</p>
+              <p className="font-semibold">{selectedProduct.nombre}</p>
             </div>
+
             <div>
               <span className="text-gray-600">Stock:</span>
-              <p className="font-semibold text-gray-900">{selectedProduct.stock} unidades</p>
+              <p className="font-semibold">{selectedProduct.stock || 0}</p>
             </div>
+
             <div>
               <span className="text-gray-600">Precio:</span>
-              <p className="font-semibold text-gray-900">
-                {selectedProduct.precioOferta && selectedProduct.precioOferta > 0 ? (
-                  <span>
-                    <span className="line-through text-gray-500 mr-2">${selectedProduct.precioUnitario.toLocaleString('es-CL')}</span>
-                    <span className="text-red-600">${selectedProduct.precioOferta.toLocaleString('es-CL')}</span>
+
+              {selectedProduct.precioOferta ? (
+                <p className="font-semibold">
+                  <span className="line-through mr-2 text-gray-500">
+                    ${selectedProduct.precioUnitario?.toLocaleString('es-CL')}
                   </span>
-                ) : (
-                  `$${selectedProduct.precioUnitario.toLocaleString('es-CL')}`
-                )}
-              </p>
+
+                  <span className="text-red-600">
+                    ${selectedProduct.precioOferta?.toLocaleString('es-CL')}
+                  </span>
+                </p>
+              ) : (
+                <p className="font-semibold">
+                  ${selectedProduct.precioUnitario?.toLocaleString('es-CL')}
+                </p>
+              )}
+
             </div>
+
             <div>
               <span className="text-gray-600">Campos:</span>
-              <p className="font-semibold text-gray-900">
+              <p className="font-semibold">
                 {[
                   labelConfig.showProductName,
                   labelConfig.showGenericName,
@@ -147,22 +142,15 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
                   labelConfig.showExpiry,
                   labelConfig.showManufacturer,
                   labelConfig.showPrice,
-                ].filter(Boolean).length}
-                /7
+                ].filter(Boolean).length}/7
               </p>
             </div>
+
           </div>
-          {selectedProduct.oferta && (
-            <div className="mt-4 pt-4 border-t border-red-200">
-              <p className="text-xs text-red-700 font-semibold mb-2">OFERTA VIGENTE</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <p><span className="font-semibold">Descuento:</span> {selectedProduct.oferta.descuentoPorcentaje}%</p>
-                <p><span className="font-semibold">Válido hasta:</span> {selectedProduct.oferta.vigenciaFin}</p>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
+
     </div>
   );
 }
