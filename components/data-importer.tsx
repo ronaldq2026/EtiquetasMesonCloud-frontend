@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload } from 'lucide-react';
 import { parsePosdpofe, parseMeson, mergeProductData } from '@/lib/data-merger';
-import { mockProducts } from '@/lib/mock-data';
 
 interface DataImporterProps {
   onDataMerged?: (products: any[]) => void;
@@ -41,7 +40,7 @@ export function DataImporter({ onDataMerged }: DataImporterProps) {
 
       // Fusionar datos
       if (mesonFile || posdpofeFile) {
-        const mergedProducts = mergeProductData(mockProducts, ofertasMap, mesonMap);
+        const mergedProducts = mergeProductData([], ofertasMap, mesonMap);
         onDataMerged?.(mergedProducts);
         setMessage((prev) => `${prev}\n✓ Datos fusionados exitosamente`);
       }

@@ -68,15 +68,29 @@ export type MesonExcelSummary = {
 };
 
 export type ProductoPOSDPOFE = {
-  sku: string;
-  descripcionPromo: string;
-  precioNormal: number;
-  precioOferta?: number;
-  precioUnitario?: number;
-  vigenciaInicio?: string | null;
-  vigenciaFin?: string | null;
-  descuentoPct?: number;
-};
+
+  sku: string
+
+  descripcion?: string
+  descripcionPromo?: string
+
+  marca?: string
+  contenido?: string
+
+  ean13?: string
+  imagenUrl?: string | null
+
+  precioNormal?: number
+  precioUnitario?: number
+  precioOferta?: number
+
+  vigenciaInicio?: string | null
+  vigenciaFin?: string | null
+
+  descuentoPct?: number
+    validoHasta?: string | null; 
+
+}
 
 export type ExcelItem = {
   sku: string;

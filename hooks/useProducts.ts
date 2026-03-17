@@ -1,3 +1,4 @@
+//hooks/useProducts.ts
 import useSWR from 'swr';
 import { apiClient, ApiProduct } from '@/lib/api-client';
 

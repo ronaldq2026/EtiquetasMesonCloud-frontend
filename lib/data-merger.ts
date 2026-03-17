@@ -1,4 +1,4 @@
-import { Product, Oferta, MesonInfo } from './mock-data';
+import { Product, Oferta, MesonInfo } from './product';
 
 /**
  * Parser para archivos TSV delimitados por tabuladores

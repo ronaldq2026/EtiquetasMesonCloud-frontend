@@ -1,338 +1,269 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Product, LabelConfig } from '@/lib/mock-data'
-import { validateLabelConfig } from '@/lib/validation'
+import { useState } from "react"
+import { Product, LabelConfig } from "@/lib/product"
+import { validateLabelConfig } from "@/lib/validation"
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
-import { Printer, Download, CheckCircle, AlertCircle } from 'lucide-react'
+import { Printer, CheckCircle, AlertCircle } from "lucide-react"
 
 interface PrintExportProps {
-  product: Product | null
-  config: LabelConfig
+product: Product | null
+config: LabelConfig
 }
 
 export function PrintExport({ product, config }: PrintExportProps) {
 
-  const printRef = useRef<HTMLDivElement>(null)
+const [validationErrors, setValidationErrors] = useState<string[]>([])
+const [quantity, setQuantity] = useState(1)
+const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [quantity, setQuantity] = useState(1)
-
-  if (!product) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Imprimir</CardTitle>
-          <CardDescription>Selecciona un producto</CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
-
-  const p: Product = product
-
-  const precioFinal = p.precioOferta ?? p.precioUnitario ?? 0
-
-  const tieneOferta =
-    p.precioOferta &&
-    p.precioUnitario &&
-    p.precioOferta < p.precioUnitario
-
-  function validate() {
-
-    const errors = validateLabelConfig(config)
-
-    if (errors.length > 0) {
-      setValidationErrors(errors.map(e => e.message))
-      return false
-    }
-
-    setValidationErrors([])
-    return true
-  }
-
-  // -------------------------
-  // IMPRIMIR NORMAL
-  // -------------------------
-
-  function handlePrint() {
-
-    if (!validate()) return
-
-    const content = printRef.current
-    if (!content) return
-
-    const win = window.open('', '', 'width=800,height=600')
-
-    if (!win) return
-
-    win.document.write(`
-      <html>
-      <head>
-      <title>Imprimir Etiqueta</title>
-      <style>
-      body{
-        display:flex;
-        flex-wrap:wrap;
-        gap:10px;
-        justify-content:center;
-        font-family:Arial;
-      }
-      </style>
-      </head>
-      <body>
-      ${content.innerHTML.repeat(quantity)}
-      </body>
-      </html>
-    `)
-
-    win.document.close()
-    win.print()
-  }
-
-  // -------------------------
-  // IMPRIMIR ZPL (ZEBRA)
-  // -------------------------
-	async function handlePrintZPL() {
-
-  if (!product) return
-
-  const sku = (product as any).sku ?? p.codigo
-  const codigoBarras = (product as any).ean13 ?? sku
-
-  const payload = {
-    precioAntes: p.precioUnitario,
-    precioAhora: p.precioOferta ?? p.precioUnitario,
-    producto: p.descripcion,
-    subtitulo: p.descripcion,
-    sku,
-    codigoBarras,
-    cantidad: quantity
-  }
-
-  try {
-
-    const res = await fetch("http://localhost:3000/api/labels/print", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-token": "MI_TOKEN_DEMO_123"
-      },
-      body: JSON.stringify(payload)
-    })
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`)
-    }
-
-    const data = await res.json()
-
-    if (data.ok) {
-      alert("Etiqueta enviada a Zebra 🖨️")
-    } else {
-      alert("Error imprimiendo etiqueta")
-    }
-
-  } catch (err) {
-
-    console.error(err)
-    alert("No se pudo conectar con el servidor de impresión")
-
-  }
-
+if (!product) {
+return ( <Card> <CardHeader> <CardTitle>Imprimir</CardTitle> <CardDescription>Selecciona un producto</CardDescription> </CardHeader> </Card>
+)
 }
 
+const p: Product = product
 
-  // -------------------------
-  // EXPORTAR PNG
-  // -------------------------
+function validate() {
+const errors = validateLabelConfig(config)
 
-  function handleExportPNG() {
+if (errors.length > 0) {
+  setValidationErrors(errors.map(e => e.message))
+  return false
+}
 
-    const canvas = document.createElement('canvas')
+setValidationErrors([])
+return true
+}
 
-    const mmToPx = 3.78
+// -------------------------
+// GENERAR PDF (PRINT BROWSER)
+// -------------------------
 
-    canvas.width = config.width * mmToPx
-    canvas.height = config.height * mmToPx
+function handlePrintPDF() {
+if (!validate()) return
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+const html =
+  "<html>" +
+  "<head>" +
+  "<title>Etiqueta</title>" +
+  "<style>" +
+  "body{margin:0;padding:20px;font-family:Arial;text-align:center}" +
+  ".label{border:1px solid #ccc;padding:10px;margin:10px;display:inline-block;width:200px}" +
+  ".price{font-size:20px;font-weight:bold}" +
+  "</style>" +
+  "</head>" +
+  "<body>" +
+  Array(quantity).fill(
+    "<div class='label'>" +
+    "<div>" + (p.descripcion ?? "") + "</div>" +
+    "<div>SKU: " + p.codigo + "</div>" +
+    "<div class='price'>$" + (p.precioOferta ?? p.precioUnitario ?? 0) + "</div>" +
+    "</div>"
+  ).join("") +
+  "</body></html>"
 
-    ctx.fillStyle = config.backgroundColor
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+const win = window.open("", "_blank")
 
-    ctx.fillStyle = config.textColor
-    ctx.textAlign = 'center'
+if (!win) return
 
-    let y = 40
+win.document.open()
+win.document.write(html)
+win.document.close()
 
-    const lines: string[] = []
+win.focus()
+win.print()
+}
 
-    lines.push(p.descripcion ?? '')
-    lines.push(`SKU: ${p.codigo}`)
+// -------------------------
+// IMPRIMIR ZEBRA
+// -------------------------
 
-    if (tieneOferta) {
+async function handlePrintZPL() {
+		
+const payload = {
 
-      lines.push(`Normal: $${p.precioUnitario}`)
-      lines.push(`Oferta: $${p.precioOferta}`)
+  producto: p.descripcion,
 
-    } else {
+  sku: p.codigo,
+  ean13: p.codigoBarras,
 
-      lines.push(`$${precioFinal}`)
+  precioNormal: p.precioUnitario,
+  precioOferta: p.precioOferta,
 
-    }
+  precioAntes: p.precioUnitario,
+  precioAhora: p.precioOferta ?? p.precioUnitario,
 
-    lines.forEach((line, i) => {
+  validoHasta: p.expiryDate,
 
-      const size = i === 0 ? config.fontSize + 2 : config.fontSize
+  cantidad: quantity
+}
 
-      ctx.font = `${size}px Arial`
+try {
 
-      ctx.fillText(line, canvas.width / 2, y)
+console.log("PRINT PAYLOAD", payload)
 
-      y += config.fontSize + 10
+const res = await fetch("http://localhost:3000/api/labels/print", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-token": "MI_TOKEN_DEMO_123"
+  },
+  body: JSON.stringify(payload)
+})
 
-    })
+const data = await res.json()
 
-    const link = document.createElement('a')
+if (data.ok) {
+  alert("Etiqueta enviada a Zebra 🖨️")
+} else {
+  alert("Error imprimiendo etiqueta")
+}
 
-    link.href = canvas.toDataURL('image/png')
-    link.download = `label_${p.codigo}.png`
+} catch (err) {
 
-    link.click()
-  }
+console.error(err)
+alert("No se pudo conectar con el servidor de impresión")
+}
+}
 
-  return (
+// -------------------------
+// PREVIEW ZEBRA
+// -------------------------
 
-    <Card>
+async function handlePreviewZPL() {
 
-      <CardHeader>
-        <CardTitle>Imprimir y Exportar</CardTitle>
-        <CardDescription>
-          Genera etiquetas del producto seleccionado
-        </CardDescription>
-      </CardHeader>
+const payload = {
 
-      <CardContent className="space-y-4">
+  producto: p.descripcion,
 
-        {validationErrors.length > 0 ? (
+  sku: p.codigo,
+  ean13: p.codigoBarras,
 
-          <div className="p-3 bg-red-50 border border-red-200 rounded flex gap-2 text-red-700">
-            <AlertCircle size={16}/>
-            {validationErrors.join(', ')}
-          </div>
+  precioNormal: p.precioUnitario,
+  precioOferta: p.precioOferta,
 
-        ) : (
+  precioAntes: p.precioUnitario,
+  precioAhora: p.precioOferta ?? p.precioUnitario,
 
-          <div className="p-3 bg-green-50 border border-green-200 rounded flex gap-2 text-green-700">
-            <CheckCircle size={16}/>
-            Configuración válida
-          </div>
+  validoHasta: p.expiryDate,
 
-        )}
+  cantidad: quantity
+}
 
-        <div className="space-y-2">
+try {
 
-          <Label>Cantidad de etiquetas</Label>
+const res = await fetch("http://localhost:3000/api/labels/preview", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-token": "MI_TOKEN_DEMO_123"
+  },
+  body: JSON.stringify(payload)
+})
 
-          <Input
-            type="number"
-            min="1"
-            max="200"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
+const blob = await res.blob()
 
-        </div>
+const url = URL.createObjectURL(blob)
 
-        {/* BOTONES */}
+setPreviewUrl(url)
 
-        <div className="grid grid-cols-3 gap-2">
+} catch (err) {
 
-          <Button
-            onClick={handlePrint}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Printer className="mr-2 h-4 w-4"/>
-            Imprimir
-          </Button>
+console.error(err)
+alert("No se pudo generar preview")
+}
+}
 
-          <Button
-            onClick={handlePrintZPL}
-            variant="outline"
-          >
-            Imprimir Zebra
-          </Button>
+console.log("PRODUCT EN PRINTEXPORT", product)
 
-          <Button
-            onClick={handleExportPNG}
-            variant="outline"
-          >
-            <Download className="mr-2 h-4 w-4"/>
-            Exportar PNG
-          </Button>
+return (
 
-        </div>
+<Card>
 
-        {/* TEMPLATE OCULTO */}
+  <CardHeader>
+    <CardTitle>Imprimir y Exportar</CardTitle>
+    <CardDescription>
+      Genera etiquetas del producto seleccionado
+    </CardDescription>
+  </CardHeader>
 
-        <div ref={printRef} style={{ display: 'none' }}>
+  <CardContent className="space-y-4">
 
-          <div
-            style={{
-              width: `${config.width}mm`,
-              height: `${config.height}mm`,
-              backgroundColor: config.backgroundColor,
-              color: config.textColor,
-              fontFamily: 'Arial',
-              fontSize: `${config.fontSize}px`,
-              textAlign: 'center',
-              padding: '8px',
-              border: '1px solid #ccc'
-            }}
-          >
+    {validationErrors.length > 0 ? (
 
-            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-              {p.descripcion}
-            </div>
+      <div className="p-3 bg-red-50 border border-red-200 rounded flex gap-2 text-red-700">
+        <AlertCircle size={16}/>
+        {validationErrors.join(", ")}
+      </div>
 
-            <div>
-              SKU: {p.codigo}
-            </div>
+    ) : (
 
-            {tieneOferta ? (
+      <div className="p-3 bg-green-50 border border-green-200 rounded flex gap-2 text-green-700">
+        <CheckCircle size={16}/>
+        Configuración válida
+      </div>
 
-              <>
-                <div style={{ textDecoration: 'line-through', color: '#666' }}>
-                  ${p.precioUnitario}
-                </div>
+    )}
 
-                <div style={{ color: 'red', fontWeight: 'bold' }}>
-                  ${p.precioOferta}
-                </div>
-              </>
+    <div className="space-y-2">
 
-            ) : (
+      <Label>Cantidad de etiquetas</Label>
 
-              <div style={{ fontWeight: 'bold' }}>
-                ${precioFinal}
-              </div>
+      <Input
+        type="number"
+        min="1"
+        max="200"
+        value={quantity}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+      />
 
-            )}
+    </div>
 
-          </div>
+    {/* BOTONES */}
+	
+	<div className="flex gap-2">
+	  <Button variant="default" onClick={handlePreviewZPL}>
+		Vista Zebra
+	  </Button>
 
-        </div>
+	  <Button variant="outline" onClick={handlePrintZPL}>
+		Zebra
+	  </Button>
 
-      </CardContent>
+	  <Button variant="outline" onClick={handlePrintPDF}>
+		<Printer className="mr-2 h-4 w-4" />
+		PDF
+	  </Button>
+	</div>
 
-    </Card>
+    {/* PREVIEW ZEBRA */}
 
-  )
+    {previewUrl && (
+
+      <div className="border rounded p-4 flex justify-center">
+
+        <img
+          src={previewUrl}
+          alt="Zebra Preview"
+          style={{
+            width: "300px",
+            background: "white"
+          }}
+        />
+
+      </div>
+
+    )}
+
+  </CardContent>
+
+</Card>
+
+)
 }

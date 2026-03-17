@@ -1,4 +1,4 @@
-import { LabelConfig } from './mock-data';
+import { LabelConfig } from './product';
 
 export interface ValidationError {
   field: string;

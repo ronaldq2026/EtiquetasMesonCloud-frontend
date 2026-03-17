@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Product } from '@/lib/mock-data';
+import type { Product } from '@/lib/product';
 
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -19,26 +19,35 @@ import {
 import { ExcelUploader } from '@/components/excel-uploader';
 
 interface ProductSearchProps {
-  onProductSelect: (product: Product) => void;
-  selectedProduct?: Product;
+  selectedProduct: Product | null
+  onProductSelect: (p: Product) => void
 }
 
 function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product {
 
+  console.log("OFERTA RAW", oferta)
+
   const precioNormal = oferta.precioNormal ?? 0;
   const precioOferta = oferta.precioOferta ?? null;
+    
+  const fechaFin = oferta.validoHasta ?? '';
 
   return {
+
     id: oferta.sku,
 
     codigo: oferta.sku,
-    codigoBarras: '',
-    nombre: excel.descripcion ?? oferta.descripcionPromo ?? '',
-    descripcion: excel.descripcion ?? oferta.descripcionPromo ?? '',
+    
+	codigoBarras: oferta.ean13 ?? '',
+
+    nombre: excel.descripcion ?? oferta.descripcion ?? '',
+    descripcion: excel.descripcion ?? oferta.descripcion ?? '',
 
     dosage: '',
     batch: '',
-    expiryDate: oferta.vigenciaFin ?? '',
+
+    expiryDate: fechaFin,
+
     manufacturer: '',
 
     precioUnitario: precioNormal,
@@ -46,19 +55,19 @@ function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product
     precio: precioOferta ?? precioNormal,
 
     stock: 0,
-    categoria: '',
-    laboratorio: '',
 
-    ...(precioOferta && {
-      oferta: {
-        precioOferta: precioOferta,
-        descuentoPorcentaje: oferta.descuentoPct ?? 0,
-        vigenciaFin: oferta.vigenciaFin ?? '',
-        vigenciaInicio: oferta.vigenciaInicio ?? '',
-        tipoOferta: '1',
-      }
-    })
-  };
+    categoria: '',
+    laboratorio: oferta.marca ?? '',
+
+    oferta: {
+      precioOferta: precioOferta ?? precioNormal,
+      descuentoPorcentaje: oferta.descuentoPct ?? 0,
+      vigenciaInicio: oferta.vigenciaInicio || '',
+      vigenciaFin: fechaFin,
+      tipoOferta: '1'
+    }
+
+  }
 }
 
 export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearchProps) {

@@ -1,5 +1,5 @@
 // lib/mappers.ts
-import type { Product, Oferta } from "@/lib/mock-data";
+import type { Product, Oferta } from "@/lib/product";
 
 /**
  * Helpers

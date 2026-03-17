@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Product, defaultLabelConfig } from '@/lib/mock-data';
-import { LabelPreview } from '@/components/label-preview';
+import { Product, defaultLabelConfig } from '@/lib/product';
 import { ConfigPanel } from '@/components/config-panel';
 import { ProductSearch } from '@/components/product-search';
 import { LabelBuilder } from '@/components/label-builder';
 import { PrintExport } from '@/components/print-export';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { LabelConfig } from '@/lib/mock-data';
+import type { LabelConfig } from '@/lib/product';
 
 interface MenuManualSearchProps {
   initialProduct: Product;
@@ -61,26 +60,11 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
           </TabsContent>
 
         </Tabs>
+
       </div>
 
-      {/* Preview + Print */}
+      {/* Print + Info */}
       <div className="lg:col-span-2 space-y-6">
-
-        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Vista Previa de Etiqueta
-          </h2>
-
-          <div className="flex justify-center bg-gray-50 rounded-lg p-8 min-h-96">
-
-            <LabelPreview
-              product={selectedProduct}
-              config={labelConfig}
-            />
-
-          </div>
-        </div>
 
         <PrintExport
           product={selectedProduct}
@@ -89,10 +73,13 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
 
         {/* INFO */}
 
-        <div className={`rounded-lg p-6 border ${selectedProduct.oferta
-            ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
-            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-          }`}>
+        <div
+          className={`rounded-lg p-6 border ${
+            selectedProduct.oferta
+              ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+              : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+          }`}
+        >
 
           <h3 className="font-semibold text-gray-900 mb-3">
             Configuración Actual de Etiqueta
@@ -149,6 +136,7 @@ export function MenuManualSearch({ initialProduct }: MenuManualSearchProps) {
           </div>
 
         </div>
+
       </div>
 
     </div>

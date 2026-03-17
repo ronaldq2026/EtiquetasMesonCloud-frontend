@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Product } from '@/lib/mock-data';
+import { Product } from '@/lib/product';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

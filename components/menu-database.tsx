@@ -1,38 +1,64 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { mockProducts } from '@/lib/mock-data';
-import { simulatedDatabaseProducts } from '@/lib/mock-menu-data';
+import { useProducts } from '@/hooks/useProducts';
+import type { Product } from '@/lib/product';
 import { ProductsGrid } from './products-grid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 
 export function MenuDatabase() {
+
+  const { products, isLoading: isProductsLoading } = useProducts();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simular lectura de BD
   const handleReadDatabase = async () => {
     setIsLoading(true);
-    // Simular delay de lectura
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    setTimeout(() => setIsLoading(false), 800);
   };
+  
+const { productsWithOffer, productsWithoutOffer } = useMemo(() => {
 
-  // Parear BD con ofertas
-  const { productsWithOffer, productsWithoutOffer } = useMemo(() => {
-    const withOffer = mockProducts.filter(p => 
-      simulatedDatabaseProducts.includes(p.codigo) && p.oferta
-    );
-    const withoutOffer = mockProducts.filter(p => 
-      simulatedDatabaseProducts.includes(p.codigo) && !p.oferta
-    );
-    return { productsWithOffer: withOffer, productsWithoutOffer: withoutOffer };
-  }, []);
+	  const mappedProducts: Product[] = products.map((p: any, index: number) => {
 
+		const precioUnitario = p.precio || 0;
+		const precioOferta = null;
+
+		return {
+		  id: p.sku || String(index),
+		  codigo: p.sku || '',
+		  codigoBarras: p.sku || '',
+		  nombre: p.descripcion || '',
+		  descripcion: p.descripcion || '',
+		  dosage: '',
+		  batch: '',
+		  expiryDate: '',
+		  manufacturer: '',
+
+		  precioUnitario: precioUnitario,
+		  precioOferta: precioOferta,
+		  precio: precioOferta ?? precioUnitario,
+
+		  stock: 0,
+		  categoria: '',
+		  laboratorio: '',
+
+		  oferta: undefined,
+		  meson: undefined
+		};
+
+	  });
+
+	  return {
+		productsWithOffer: mappedProducts,
+		productsWithoutOffer: []
+	  };
+
+	}, [products]);
   return (
     <div className="space-y-6">
-      {/* Sección de simulación de BD */}
+
       <Card className="border-blue-200 bg-blue-50">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
@@ -40,71 +66,42 @@ export function MenuDatabase() {
             Lectura de Base de Datos
           </CardTitle>
           <CardDescription>
-            Simulación de lectura desde tabla de base de datos
+            Lectura desde POS
           </CardDescription>
         </CardHeader>
+
         <CardContent>
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600">
-              Se leyeron <strong>{simulatedDatabaseProducts.length} productos</strong> de la tabla de base de datos.
-            </p>
-            <Button
-              onClick={handleReadDatabase}
-              disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isLoading ? 'Leyendo BD...' : 'Leer Base de Datos'}
-            </Button>
-            <div className="bg-white p-3 rounded text-xs font-mono space-y-1">
-              <p className="text-gray-600">SKUs leídos de la tabla:</p>
-              {simulatedDatabaseProducts.map(sku => (
-                <div key={sku} className="text-blue-600">{sku}</div>
-              ))}
-            </div>
-          </div>
+
+          <p className="text-sm text-gray-600 mb-3">
+            Se cargaron <strong>{products.length}</strong> productos
+          </p>
+
+          <Button
+            onClick={handleReadDatabase}
+            disabled={isLoading || isProductsLoading}
+          >
+            {(isLoading || isProductsLoading) ? 'Leyendo...' : 'Actualizar'}
+          </Button>
+
         </CardContent>
       </Card>
 
-      {/* Grid de productos CON ofertas */}
       <ProductsGrid
         products={productsWithOffer}
-        title="Productos CON Ofertas"
-        description={`${productsWithOffer.length} producto(s) encontrado(s) en la tabla de ofertas`}
+        title="Productos CON Oferta"
+        description={`${productsWithOffer.length} productos`}
         showOfferBadge={true}
       />
 
-      {/* Grid de productos SIN ofertas */}
       {productsWithoutOffer.length > 0 && (
         <ProductsGrid
           products={productsWithoutOffer}
-          title="Productos SIN Ofertas"
-          description={`${productsWithoutOffer.length} producto(s) sin oferta vigente`}
+          title="Productos SIN Oferta"
+          description={`${productsWithoutOffer.length} productos`}
           showOfferBadge={false}
         />
       )}
 
-      {/* Resumen */}
-      <Card className="border-gray-300">
-        <CardHeader>
-          <CardTitle className="text-sm">Resumen de Lectura</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded">
-              <div className="text-2xl font-bold text-blue-600">{simulatedDatabaseProducts.length}</div>
-              <div className="text-xs text-gray-600">Productos leídos</div>
-            </div>
-            <div className="text-center p-3 bg-green-50 rounded">
-              <div className="text-2xl font-bold text-green-600">{productsWithOffer.length}</div>
-              <div className="text-xs text-gray-600">Con oferta</div>
-            </div>
-            <div className="text-center p-3 bg-orange-50 rounded">
-              <div className="text-2xl font-bold text-orange-600">{productsWithoutOffer.length}</div>
-              <div className="text-xs text-gray-600">Sin oferta</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

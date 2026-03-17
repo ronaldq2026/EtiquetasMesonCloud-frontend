@@ -1,6 +1,6 @@
 'use client';
 
-import { Product, LabelConfig } from '@/lib/mock-data';
+import { Product, LabelConfig } from '@/lib/product';
 
 interface LabelPreviewProps {
   product: Product;
