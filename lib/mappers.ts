@@ -36,12 +36,14 @@ export function mapDbfToProduct(row: any): Product {
 
   // Precios
   const precioOferta = safeNumber(row?.PRECIO_OFERTA, NaN);
+  
+  const precioNormal = safeNumber(
+	  row?.PRECIO_NORMAL ?? row?.MAPPREVT ?? row?.PRECIO ?? 0
+	);
+
   const precioUnitario = safeNumber(
-    // precio "unitario" de referencia (base de POSMAPRE / mapprevt)
-    row?.PRECIO ?? row?.PRECIO1 ?? row?.PRECIO_UNITARIO,
-    0
-  );
-  const precio = !isNaN(precioOferta) ? precioOferta : precioUnitario;
+	  row?.PRECIO_UNITARIO ?? row?.MAPREUNI ?? 0
+	); 
 
   // Oferta (si existe precio oferta válido)
   let oferta: Oferta | undefined = undefined;
@@ -65,25 +67,28 @@ export function mapDbfToProduct(row: any): Product {
     };
   }
 
-  const producto: Product = {
-    id: String(codigo || codigoBarras || Date.now()),
-    codigo: String(codigo || ""),
-    codigoBarras: String(codigoBarras || ""),
-    nombre: String(nombre || ""),
-    descripcion: String(descripcion || ""),
-    dosage: String(dosage || ""),
-    batch: String(batch || ""),
-    expiryDate,
-    manufacturer: laboratorio || "",
-    laboratorio: laboratorio || "",
-    precioUnitario,
-    precioOferta: !isNaN(precioOferta) ? precioOferta : null,
-    precio,
-    stock: safeNumber(row?.STOCK ?? row?.EXISTENCIA, 0),
-    categoria: String(row?.CATEGORIA ?? row?.CATEG ?? ""),
-    oferta,
-    meson: undefined,
-  };
+	const producto: Product = {
+	  id: String(codigo || codigoBarras || Date.now()),
+	  codigo: String(codigo || ""),
+	  codigoBarras: String(codigoBarras || ""),
+	  nombre: String(nombre || ""),
+	  descripcion: String(descripcion || ""),
+	  dosage: String(dosage || ""),
+	  batch: String(batch || ""),
+	  expiryDate,
+	  manufacturer: laboratorio || "",
+	  laboratorio: laboratorio || "",
+
+	  // 🔥 PRECIOS CORREGIDOS
+	  precioNormal,                     // 👈 NUEVO (CLAVE)
+	  precioUnitario,
+	  precioOferta: !isNaN(precioOferta) ? precioOferta : null,	  
+
+	  stock: safeNumber(row?.STOCK ?? row?.EXISTENCIA, 0),
+	  categoria: String(row?.CATEGORIA ?? row?.CATEG ?? ""),
+	  oferta,
+	  meson: undefined,
+	};
 
   return producto;
 }

@@ -184,9 +184,6 @@ export function LabelBuilder({
                 case 'showManufacturer':
                   value = product.laboratorio;
                   break;
-                case 'showPrice':
-                  value = `$${product.precio.toLocaleString('es-CL')}`;
-                  break;
               }
 
               return (

@@ -22,7 +22,8 @@ const { productsWithOffer, productsWithoutOffer } = useMemo(() => {
 
 	  const mappedProducts: Product[] = products.map((p: any, index: number) => {
 
-		const precioUnitario = p.precio || 0;
+		const precioNormal = p.precioUnitario || 0;
+		const precioUnitario = precioNormal;
 		const precioOferta = null;
 
 		return {
@@ -36,9 +37,9 @@ const { productsWithOffer, productsWithoutOffer } = useMemo(() => {
 		  expiryDate: '',
 		  manufacturer: '',
 
+		  precioNormal: precioNormal,
 		  precioUnitario: precioUnitario,
-		  precioOferta: precioOferta,
-		  precio: precioOferta ?? precioUnitario,
+		  precioOferta: precioOferta,		
 
 		  stock: 0,
 		  categoria: '',

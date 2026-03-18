@@ -48,11 +48,6 @@ export function LabelPreview({ product, config }: LabelPreviewProps) {
             </div>
           )}
           
-          {config.showPrice && (
-            <div className="font-bold text-sm truncate">
-              $ {product.precio.toLocaleString('es-CL')}
-            </div>
-          )}
         </div>
       </div>
     </div>

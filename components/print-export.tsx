@@ -1,3 +1,4 @@
+//print-export.tsx
 'use client'
 
 import { useState } from "react"
@@ -92,12 +93,10 @@ const payload = {
 
   sku: p.codigo,
   ean13: p.codigoBarras,
-
-  precioNormal: p.precioUnitario,
+  
+  precioNormal: p.precioNormal,
+  precioUnitario: p.precioUnitario,  
   precioOferta: p.precioOferta,
-
-  precioAntes: p.precioUnitario,
-  precioAhora: p.precioOferta ?? p.precioUnitario,
 
   validoHasta: p.expiryDate,
 
@@ -144,12 +143,10 @@ const payload = {
 
   sku: p.codigo,
   ean13: p.codigoBarras,
-
-  precioNormal: p.precioUnitario,
+  
+  precioNormal: p.precioNormal,
+  precioUnitario: p.precioUnitario,  
   precioOferta: p.precioOferta,
-
-  precioAntes: p.precioUnitario,
-  precioAhora: p.precioOferta ?? p.precioUnitario,
 
   validoHasta: p.expiryDate,
 

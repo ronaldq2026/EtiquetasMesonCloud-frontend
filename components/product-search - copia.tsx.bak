@@ -27,13 +27,19 @@ function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product
 
   console.log("OFERTA RAW", oferta)
 
+  const precioUnitario = oferta.precioUnitario ?? 0;
+  const precioNormal = oferta.precioNormal ?? 0;
+  const precioOferta = oferta.precioOferta ?? null;
+    
+  const fechaFin = oferta.validoHasta ?? '';
+
   return {
 
     id: oferta.sku,
 
     codigo: oferta.sku,
-
-    codigoBarras: oferta.ean13 ?? '',
+    
+	codigoBarras: oferta.ean13 ?? '',
 
     nombre: excel.descripcion ?? oferta.descripcion ?? '',
     descripcion: excel.descripcion ?? oferta.descripcion ?? '',
@@ -41,27 +47,27 @@ function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product
     dosage: '',
     batch: '',
 
-    expiryDate: oferta.validoHasta ?? '',
+    expiryDate: fechaFin,
 
     manufacturer: '',
-
-    // 🔥 NO TOCAR NADA
-    precioNormal: Number(oferta.precioNormal ?? 0),
-    precioUnitario: Number(oferta.precioUnitario ?? 0),
-    precioOferta: oferta.precioOferta ?? null,
+	
+    precioUnitario: precioUnitario,
+	precioNormal: precioNormal,
+    precioOferta: precioOferta,    
 
     stock: 0,
 
     categoria: '',
     laboratorio: oferta.marca ?? '',
 
-    oferta: oferta.precioOferta ? {
-      precioOferta: oferta.precioOferta,
+    oferta: {
+      precioOferta: precioOferta ?? precioNormal,
       descuentoPorcentaje: oferta.descuentoPct ?? 0,
       vigenciaInicio: oferta.vigenciaInicio || '',
-      vigenciaFin: oferta.validoHasta ?? '',
+      vigenciaFin: fechaFin,
       tipoOferta: '1'
-    } : undefined
+    }
+
   }
 }
 

@@ -25,9 +25,9 @@ export interface Product {
   batch: string;
   expiryDate: string;
   manufacturer: string;
-  precioUnitario: number; // Precio base de POSMAPRE (mapprevt)
+  precioUnitario: number; // Precio base de POSMAPRE (MAPREUNI)
   precioOferta: number | null; // Precio con descuento de POSDPOFE (dp_valofer)
-  precio: number; // Precio vigente (si hay oferta, usa precioOferta; si no, usa precioUnitario)
+  precioNormal: number;   // precio normal MAPPREVT  
   stock: number;
   categoria: string;
   laboratorio: string;
