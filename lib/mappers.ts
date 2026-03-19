@@ -44,6 +44,8 @@ export function mapDbfToProduct(row: any): Product {
   const precioUnitario = safeNumber(
 	  row?.PRECIO_UNITARIO ?? row?.MAPREUNI ?? 0
 	); 
+  const unidadMedida =
+	  row?.MAPUDESC ?? row?.UNIDAD ?? row?.UMEDIDA ?? "";
 
   // Oferta (si existe precio oferta válido)
   let oferta: Oferta | undefined = undefined;
@@ -75,6 +77,7 @@ export function mapDbfToProduct(row: any): Product {
 	  descripcion: String(descripcion || ""),
 	  dosage: String(dosage || ""),
 	  batch: String(batch || ""),
+	  unidadMedida: String(unidadMedida || ""),
 	  expiryDate,
 	  manufacturer: laboratorio || "",
 	  laboratorio: laboratorio || "",

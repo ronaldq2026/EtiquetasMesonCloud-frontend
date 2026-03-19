@@ -88,7 +88,8 @@ export type ProductoPOSDPOFE = {
   vigenciaFin?: string | null
 
   descuentoPct?: number
-    validoHasta?: string | null; 
+  validoHasta?: string | null;
+  unidadMedida?: string;
 
 }
 

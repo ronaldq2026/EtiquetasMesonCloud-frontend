@@ -33,6 +33,7 @@ export interface Product {
   laboratorio: string;
   oferta?: Oferta; // Datos de oferta de posdpofe
   meson?: MesonInfo; // Datos del mesón
+  unidadMedida?: string;
 }
 
 export interface LabelConfig {

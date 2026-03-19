@@ -44,6 +44,8 @@ function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product
     expiryDate: oferta.validoHasta ?? '',
 
     manufacturer: '',
+	
+	unidadMedida: oferta.unidadMedida ?? '',
 
     // 🔥 NO TOCAR NADA
     precioNormal: Number(oferta.precioNormal ?? 0),

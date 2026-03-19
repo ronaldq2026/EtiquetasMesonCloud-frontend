@@ -93,6 +93,7 @@ const payload = {
 
   sku: p.codigo,
   ean13: p.codigoBarras,
+  unidadMedida: p.unidadMedida,
   
   precioNormal: p.precioNormal,
   precioUnitario: p.precioUnitario,  
@@ -143,6 +144,7 @@ const payload = {
 
   sku: p.codigo,
   ean13: p.codigoBarras,
+  unidadMedida: p.unidadMedida,
   
   precioNormal: p.precioNormal,
   precioUnitario: p.precioUnitario,  
