@@ -237,15 +237,7 @@ Precio
 
 {activeMenu === 'database' && (
 
-<TabDatabaseRead
-onPrint={(skus) => {
-
-console.log('Imprimiendo desde BD:', skus)
-
-alert(`Enviando ${skus.length} etiqueta(s)`)
-
-}}
-/>
+	<TabDatabaseRead/>
 
 )}
 

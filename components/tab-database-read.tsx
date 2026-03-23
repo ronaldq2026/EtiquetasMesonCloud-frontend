@@ -1,83 +1,193 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { Product } from '@/lib/product';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FileJson } from 'lucide-react';
+import { FileJson, Database, UploadCloud } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
-// Mock: Lectura del archivo maestro centralizado
-const MOCK_DATABASE_PRODUCTS = [
-  { codigo: '89997002', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO', talla: '14-15', stock: 8, precio: 16990, laboratorio: 'BLOODYGREEN', enOferta: true },
-  { codigo: '89997001', nombre: 'BLOODYGREEN TEEN FLUJO INTENSO', talla: '12-13', stock: 8, precio: 16990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996005', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO', talla: 'XXL', stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: true },
-  { codigo: '89996004', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO', talla: 'XL', stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996003', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO', talla: 'L', stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: false },
-  { codigo: '89996002', nombre: 'BLOODYGREEN H.W. FLUJO INTENSO', talla: 'M', stock: 14, precio: 19990, laboratorio: 'BLOODYGREEN', enOferta: true },
-];
-
-interface TabDatabaseReadProps {
-  onProductSelect?: (product: any) => void;
-  onPrint?: (skus: string[]) => void;
-}
-
-export function TabDatabaseRead({ onProductSelect, onPrint }: TabDatabaseReadProps) {
+export function TabDatabaseRead() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
-  const [selectAllWithOffer, setSelectAllWithOffer] = useState(false);
 
-  // Separar en dos grupos
-  const productsWithOffer = useMemo(() => 
-    MOCK_DATABASE_PRODUCTS.filter(p => p.enOferta), 
-    []
-  );
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // =============================
+  // 🔵 LEER CENTRALIZADO
+  // =============================
+  const handleLeerCentralizado = async () => {
+    try {
+      setLoading(true);
+
+      const res = await fetch('http://localhost:3000/api/pai/leer-centralizado', {
+        headers: {
+          'x-api-token': 'MI_TOKEN_DEMO_123'
+        }
+      });
+
+      const json = await res.json();
+
+      console.log('CENTRALIZADO:', json);
+
+      // ✅ AQUÍ ESTABA EL ERROR → usar setData
+      setData(json);
+
+    } catch (err) {
+      console.error(err);
+      alert('Error leyendo centralizado');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =============================
+  // 🟢 CARGAR A ORACLE
+  // =============================
+  const handleCargarOracle = () => {
+    fileRef.current?.click();
+  };
+
+  const handleFileChange = async (file: File) => {
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('http://localhost:3000/api/pai/cargar-excel', {
+        method: 'POST',
+        headers: {
+          'x-api-token': 'MI_TOKEN_DEMO_123',
+          'x-user': 'frontend-user'
+        },
+        body: formData
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        alert(json.message);
+        return;
+      }
+
+      alert(`✔ ${json.insertados} SKUs cargados a Oracle`);
+
+    } catch (err) {
+      console.error(err);
+      alert('Error subiendo archivo');
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  const productsWithoutOffer = useMemo(() => 
-    MOCK_DATABASE_PRODUCTS.filter(p => !p.enOferta), 
-    []
-  );
+  const handlePrintSelected = async () => {
+	  try {
+		const seleccionados = productosConOferta.filter((p: any) =>
+		  selectedWithOffer.has(p.sku)
+		);
 
-  // Manejo de selección para productos CON oferta
-  const toggleWithOffer = (codigo: string) => {
-    const newSelected = new Set(selectedWithOffer);
-    if (newSelected.has(codigo)) {
-      newSelected.delete(codigo);
-    } else {
-      newSelected.add(codigo);
-    }
-    setSelectedWithOffer(newSelected);
-    setSelectAllWithOffer(newSelected.size === productsWithOffer.length);
+		if (seleccionados.length === 0) {
+		  alert("Selecciona al menos un producto");
+		  return;
+		}
+
+		setLoading(true);
+
+		const res = await fetch('http://localhost:3000/api/print/labels', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+			'x-api-token': 'MI_TOKEN_DEMO_123'
+		  },
+		  body: JSON.stringify({
+			productos: seleccionados
+		  })
+		});
+
+		const json = await res.json();
+
+		if (!res.ok) {
+		  alert(json.message);
+		  return;
+		}
+
+		alert(`✔ ${seleccionados.length} etiquetas enviadas a impresión`);
+
+	  } catch (err) {
+		console.error(err);
+		alert("Error imprimiendo");
+	  } finally {
+		setLoading(false);
+	  }
+	};
+	
+	const selectAll = () => {	  
+      const all = new Set<string>(
+		productosConOferta.map((p: any) => String(p.sku))
+		);
+	  setSelectedWithOffer(all);
+	};
+
+	const clearAll = () => {
+	  setSelectedWithOffer(new Set());
+	};
+	
+	const handleExportSinOferta = () => {
+	  if (productosSinOferta.length === 0) {
+		alert("No hay productos para exportar");
+		return;
+	  }
+
+	  const dataExport = productosSinOferta.map((p: any) => ({
+		SKU: p.sku,
+		Descripcion: p.descripcion,
+		Marca: p.marca,
+		Precio: p.precioNormal
+	  }));
+
+	  const ws = XLSX.utils.json_to_sheet(dataExport);
+	  const wb = XLSX.utils.book_new();
+
+	  XLSX.utils.book_append_sheet(wb, ws, "SinOferta");
+
+	  XLSX.writeFile(wb, "productos_sin_oferta.xlsx");
+	};
+
+  // =============================
+  // Selección
+  // =============================
+  const toggle = (sku: string) => {
+    const newSet = new Set(selectedWithOffer);
+    newSet.has(sku) ? newSet.delete(sku) : newSet.add(sku);
+    setSelectedWithOffer(newSet);
   };
 
-  const toggleSelectAllWithOffer = () => {
-    if (selectAllWithOffer) {
-      setSelectedWithOffer(new Set());
-      setSelectAllWithOffer(false);
-    } else {
-      setSelectedWithOffer(new Set(productsWithOffer.map(p => p.codigo)));
-      setSelectAllWithOffer(true);
-    }
-  };
+  // =============================
+  // DATA DERIVADA
+  // =============================
+  const productosConOferta = data?.conOferta?.items || [];
+  const productosSinOferta = data?.sinOferta?.items || [];
 
-  const handlePrint = () => {
-    const skus = Array.from(selectedWithOffer);
-    if (skus.length === 0) {
-      alert('Selecciona al menos un producto con oferta para imprimir');
-      return;
-    }
-    onPrint?.(skus);
-    alert(`Imprimiendo ${skus.length} etiqueta(s)...`);
-  };
-
-  const handleExport = () => {
-    const skus = productsWithoutOffer.map(p => p.codigo);
-    console.log('Exportando SKUs sin oferta:', skus);
-    alert(`Exportando ${skus.length} producto(s) sin oferta...`);
-  };
-
+  // =============================
+  // UI
+  // =============================
   return (
     <div className="space-y-6">
-      {/* Header */}
+      
+      <input
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        ref={fileRef}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFileChange(file);
+        }}
+      />
+
+      {/* HEADER */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -85,112 +195,131 @@ export function TabDatabaseRead({ onProductSelect, onPrint }: TabDatabaseReadPro
             Leer Archivo Centralizado
           </CardTitle>
           <CardDescription>
-            Lectura del archivo maestro centralizado de productos. Mostrará productos con y sin ofertas vigentes.
+            Flujo: Excel → Oracle → POS (DBF)
           </CardDescription>
         </CardHeader>
+
+        <CardContent className="flex gap-3">
+
+          <Button onClick={handleLeerCentralizado} disabled={loading}>
+            <Database className="h-4 w-4 mr-2" />
+            {loading ? 'Cargando...' : 'Leer Centralizado'}
+          </Button>
+
+          <Button
+            onClick={handleCargarOracle}
+            disabled={loading}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <UploadCloud className="h-4 w-4 mr-2" />
+            Cargar a Oracle
+          </Button>
+		  <Button onClick={selectAll}>Seleccionar todos</Button>
+			<Button onClick={clearAll}>Limpiar</Button>
+
+        </CardContent>
       </Card>
 
-      {/* Estadísticas */}
+      {/* STATS */}
       <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-gray-900">{MOCK_DATABASE_PRODUCTS.length}</p>
-              <p className="text-xs text-gray-600">Total Productos</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-black">{productsWithOffer.length}</p>
-              <p className="text-xs text-gray-600">Con Ofertas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-red-600">{productsWithoutOffer.length}</p>
-              <p className="text-xs text-gray-600">Sin Ofertas</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <Card><CardContent className="pt-6 text-center">
+          <p className="text-3xl font-bold">{data?.total || 0}</p>
+          <p className="text-xs">Total</p>
+        </CardContent></Card>
 
-      {/* Productos con Ofertas */}
+        <Card><CardContent className="pt-6 text-center">
+          <p className="text-3xl font-bold">{productosConOferta.length}</p>
+          <p className="text-xs">Con Oferta</p>
+        </CardContent></Card>
+
+        <Card><CardContent className="pt-6 text-center">
+          <p className="text-3xl font-bold text-red-600">{productosSinOferta.length}</p>
+          <p className="text-xs">Sin Oferta</p>
+        </CardContent></Card>
+      </div>
+	  
+
+      {/* CON OFERTA */}
       <Card>
-        <CardHeader className="border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-gray-900">Productos CON Ofertas ({productsWithOffer.length})</CardTitle>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="select-all-offer"
-                checked={selectAllWithOffer}
-                onCheckedChange={() => toggleSelectAllWithOffer()}
+        <CardHeader>
+          <CardTitle>Productos CON Oferta ({productosConOferta.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {productosConOferta.map((p: any) => (
+            <div key={p.sku} className="flex items-center gap-3 border p-2 rounded">
+              <Checkbox
+                checked={selectedWithOffer.has(p.sku)}
+                onCheckedChange={() => toggle(p.sku)}
               />
-              <label htmlFor="select-all-offer" className="text-sm font-medium cursor-pointer">
-                Seleccionar todo
-              </label>
+              <div className="flex-1">
+                <p className="font-semibold">{p.descripcion}</p>
+                <p className="text-xs">SKU: {p.sku}</p>
+              </div>              
+				<div className="text-right">
+				  <p className="text-xs text-gray-500 line-through">
+					Normal: ${p.precioNormal}
+				  </p>
+
+				  <p className="text-xs text-gray-600">
+					Unitario: ${p.precioUnitario}
+				  </p>
+
+				  <p className="text-lg font-bold text-green-600">
+					Oferta: ${p.precioOferta}
+				  </p>
+				</div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            {productsWithOffer.map(product => (
-              <div key={product.codigo} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
-                <Checkbox 
-                  checked={selectedWithOffer.has(product.codigo)}
-                  onCheckedChange={() => toggleWithOffer(product.codigo)}
-                />
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-black">{product.nombre}</p>
-                  <p className="text-xs text-gray-700">SKU: {product.codigo} • Talla: {product.talla} • Stock: {product.stock}</p>
-                </div>
-                <span className="text-sm font-bold text-black">${product.precio.toLocaleString('es-CL')}</span>
-              </div>
-            ))}
-          </div>
+          ))}
         </CardContent>
       </Card>
+	  <div className="flex justify-end mt-4">
+		  <Button
+			disabled={selectedWithOffer.size === 0 || loading}
+			onClick={handlePrintSelected}
+			className="bg-blue-600 hover:bg-blue-700"
+		  >
+			Imprimir seleccionados ({selectedWithOffer.size})
+		  </Button>
+		</div>
+	  
 
-      {/* Productos sin Ofertas */}
-      <Card className="border-2 border-red-500 bg-red-50">
-        <CardHeader className="border-b border-red-200">
-          <CardTitle className="text-red-700">Productos SIN Ofertas ({productsWithoutOffer.length})</CardTitle>
+      {/* SIN OFERTA */}
+      <Card className="border-red-500 border-2 bg-red-50">
+        <CardHeader>
+          <CardTitle className="text-red-700">
+            Productos SIN Oferta ({productosSinOferta.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            {productsWithoutOffer.map(product => (
-              <div key={product.codigo} className="flex items-center gap-3 p-3 border-2 border-red-300 rounded-lg bg-red-100">
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-red-900">{product.nombre}</p>
-                  <p className="text-xs text-red-700">SKU: {product.codigo} • Talla: {product.talla} • Stock: {product.stock}</p>
-                </div>
-                <span className="text-sm font-bold text-red-900">${product.precio.toLocaleString('es-CL')}</span>
-              </div>
-            ))}
-          </div>
+        <CardContent>
+          {productosSinOferta.map((p: any) => (
+			<div key={p.sku} className="border p-2 rounded bg-red-100 flex justify-between items-center">
+			  <div>
+				<p className="font-semibold text-red-900">{p.descripcion}</p>
+				<p className="text-xs text-red-700">SKU: {p.sku}</p>
+			  </div>
+
+			  <div className="text-right">
+				<p className="text-sm font-bold text-red-700">
+				  ${p.precioNormal}
+				</p>
+
+				<p className="text-xs text-red-600">
+				  Unitario: ${p.precioUnitario}
+				</p>
+			  </div>
+			</div>
+          ))}
         </CardContent>
       </Card>
+	  <div className="flex justify-end mb-3">
+		  <Button
+			onClick={handleExportSinOferta}
+			className="bg-red-600 hover:bg-red-700"
+		  >
+			Exportar Excel
+		  </Button>
+		</div>
 
-      {/* Acciones */}
-      <div className="grid grid-cols-2 gap-4">
-        <Button
-          onClick={handlePrint}
-          disabled={selectedWithOffer.size === 0}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Imprimir Seleccionados ({selectedWithOffer.size})
-        </Button>
-        <Button
-          onClick={handleExport}
-          variant="destructive"
-          className="bg-red-600 hover:bg-red-700"
-        >
-          Exportar Sin Ofertas ({productsWithoutOffer.length})
-        </Button>
-      </div>
     </div>
   );
 }
