@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileJson, Database, UploadCloud } from 'lucide-react';
@@ -13,6 +19,12 @@ export function TabDatabaseRead() {
   const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
 
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // =============================
+  // DATA DERIVADA (⬅️ MOVIDA ARRIBA)
+  // =============================
+  const productosConOferta = data?.conOferta?.items ?? [];
+  const productosSinOferta = data?.sinOferta?.items ?? [];
 
   // =============================
   // 🔵 LEER CENTRALIZADO
@@ -28,10 +40,7 @@ export function TabDatabaseRead() {
       });
 
       const json = await res.json();
-
       console.log('CENTRALIZADO:', json);
-
-      // ✅ AQUÍ ESTABA EL ERROR → usar setData
       setData(json);
 
     } catch (err) {
@@ -73,7 +82,6 @@ export function TabDatabaseRead() {
       }
 
       alert(`✔ ${json.insertados} SKUs cargados a Oracle`);
-
     } catch (err) {
       console.error(err);
       alert('Error subiendo archivo');
@@ -81,47 +89,65 @@ export function TabDatabaseRead() {
       setLoading(false);
     }
   };
-  
-  const handlePrintSelected = async () => {
-	  try {
-		const seleccionados = productosConOferta.filter((p: any) =>
-		  selectedWithOffer.has(p.sku)
-		);
 
-		if (seleccionados.length === 0) {
-		  alert("Selecciona al menos un producto");
-		  return;
-		}
+  // =============================
+  // 🖨️ IMPRIMIR MASIVO
+  // =============================
+const handlePrintSelected = async () => {
+  if (loading) return;
 
-		setLoading(true);
+  try {
+    const seleccionados = productosConOferta.filter((p: any) =>
+      selectedWithOffer.has(p.sku)
+    );
 
-		const res = await fetch('http://localhost:3000/api/print/labels', {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json',
-			'x-api-token': 'MI_TOKEN_DEMO_123'
-		  },
-		  body: JSON.stringify({
-			productos: seleccionados
-		  })
-		});
+    if (seleccionados.length === 0) {
+      alert('Selecciona al menos un producto');
+      return;
+    }
 
-		const json = await res.json();
+    setLoading(true);
 
-		if (!res.ok) {
-		  alert(json.message);
-		  return;
-		}
+	const payload = seleccionados.map((p: any) => ({
+	  producto: p.descripcion,
+	  sku: p.sku,
+	  ean13: p.ean13,                 // ✅ nombre real
+	  unidadMedida: p.unidadMedida,   // ✅ nombre real
+	  precioNormal: p.precioNormal,
+	  precioUnitario: p.precioUnitario,
+	  precioOferta: p.precioOferta,
+	  validoHasta: p.vigenciaFin,     // ✅ nombre real
+	  cantidad: 1
+	}));
 
-		alert(`✔ ${seleccionados.length} etiquetas enviadas a impresión`);
+    console.log('TabDatabaseRead PAYLOAD', payload);
 
-	  } catch (err) {
-		console.error(err);
-		alert("Error imprimiendo");
-	  } finally {
-		setLoading(false);
-	  }
-	};
+    const res = await fetch('http://localhost:3000/api/labels/print', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-token': 'MI_TOKEN_DEMO_123'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (!result.ok) {
+      throw new Error('Error imprimiendo');
+    }
+
+    alert(`✔ ${payload.length} etiquetas enviadas`);
+    setSelectedWithOffer(new Set());
+
+  } catch (err) {
+    console.error(err);
+    alert('Error imprimiendo');
+  } finally {
+    setLoading(false);
+  }
+};
+
 	
 	const selectAll = () => {	  
       const all = new Set<string>(
@@ -133,10 +159,22 @@ export function TabDatabaseRead() {
 	const clearAll = () => {
 	  setSelectedWithOffer(new Set());
 	};
-	
+
+  // =============================
+  // SELECCIÓN
+  // =============================
+  const toggle = (sku: string) => {
+    const next = new Set(selectedWithOffer);
+    next.has(sku) ? next.delete(sku) : next.add(sku);
+    setSelectedWithOffer(next);
+  };
+
+  // =============================
+  // EXPORTAR SIN OFERTA
+  // =============================
 	const handleExportSinOferta = () => {
 	  if (productosSinOferta.length === 0) {
-		alert("No hay productos para exportar");
+		alert('No hay productos para exportar');
 		return;
 	  }
 
@@ -149,27 +187,10 @@ export function TabDatabaseRead() {
 
 	  const ws = XLSX.utils.json_to_sheet(dataExport);
 	  const wb = XLSX.utils.book_new();
-
-	  XLSX.utils.book_append_sheet(wb, ws, "SinOferta");
-
-	  XLSX.writeFile(wb, "productos_sin_oferta.xlsx");
-	};
-
-  // =============================
-  // Selección
-  // =============================
-  const toggle = (sku: string) => {
-    const newSet = new Set(selectedWithOffer);
-    newSet.has(sku) ? newSet.delete(sku) : newSet.add(sku);
-    setSelectedWithOffer(newSet);
-  };
-
-  // =============================
-  // DATA DERIVADA
-  // =============================
-  const productosConOferta = data?.conOferta?.items || [];
-  const productosSinOferta = data?.sinOferta?.items || [];
-
+	  XLSX.utils.book_append_sheet(wb, ws, 'SinOferta');
+	  XLSX.writeFile(wb, 'productos_sin_oferta.xlsx');
+	};  
+	
   // =============================
   // UI
   // =============================

@@ -245,15 +245,7 @@ Precio
 
 {activeMenu === 'file' && (
 
-<TabFileUpload
-onPrint={(skus) => {
-
-console.log('Imprimiendo desde archivo:', skus)
-
-alert(`Enviando ${skus.length} etiqueta(s)`)
-
-}}
-/>
+	<TabFileUpload/>
 
 )}
 
