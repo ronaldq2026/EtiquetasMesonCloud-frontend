@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
+import { useState } from 'react';
 import { Product, defaultLabelConfig } from '@/lib/product';
 import type { LabelConfig } from '@/lib/product';
 
@@ -16,70 +14,49 @@ import { TabFileUpload } from '@/components/tab-file-upload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
-  const router = useRouter();
 
-  useEffect(() => {
-    // LOGIN PLACEHOLDER
-    // TODO: integrar sistema de accesos corporativo
-    const isLoggedIn =
-      typeof window !== 'undefined' &&
-      sessionStorage.getItem('loggedIn') === 'true';
+const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
-    if (!isLoggedIn) {
-      router.replace('/login');
-    }
-  }, []);
+const [labelConfig, setLabelConfig] =
+useState<LabelConfig>(defaultLabelConfig)
 
-  const [selectedProduct, setSelectedProduct] =
-    useState<Product | null>(null);
+const [activeMenu, setActiveMenu] =
+useState<'manual' | 'database' | 'file'>('manual')
 
-  const [labelConfig, setLabelConfig] =
-    useState<LabelConfig>(defaultLabelConfig);
-
-  const [activeMenu, setActiveMenu] =
-    useState<'manual' | 'database' | 'file'>('manual');
-	
-  const handleLogout = () => {
-  sessionStorage.clear();
-  router.replace('/login');
-};
 return (
 
 <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
 
 {/* HEADER */}
+
 <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-    
-    {/* CONTENEDOR PRINCIPAL */}
-    <div className="flex items-center justify-between">
 
-      {/* IZQUIERDA: LOGO + TEXTO */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg">Fa</span>
-        </div>
+<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Impresión de Etiquetas
-          </h1>
-          <p className="text-sm text-gray-500">
-            Farmacias Ahumada
-          </p>
-        </div>
-      </div>
+<div className="flex items-center gap-3">
 
-      {/* DERECHA: BOTÓN LOGOUT */}
-      <button
-        onClick={handleLogout}
-        className="text-sm font-medium text-red-600 hover:underline"
-      >
-        Cerrar sesión
-      </button>
+<div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
 
-    </div>
-  </div>
+<span className="text-white font-bold text-lg">Fa</span>
+
+</div>
+
+<div>
+
+<h1 className="text-2xl font-bold text-gray-900">
+Impresión de Etiquetas
+</h1>
+
+<p className="text-sm text-gray-500">
+Farmacias Ahumada
+</p>
+
+</div>
+
+</div>
+
+</div>
+
 </header>
 
 {/* MENU */}
