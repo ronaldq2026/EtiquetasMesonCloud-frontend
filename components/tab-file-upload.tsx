@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileText, AlertCircle } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 interface ParsedResult {
   conOferta: any[];
@@ -157,28 +156,46 @@ export function TabFileUpload() {
     }
   };
 
-  // ============================================
-  // EXPORTAR SIN OFERTA
-  // ============================================
-  const handleExport = () => {
-    if (productosSinOferta.length === 0) {
-      alert('No hay productos para exportar');
-      return;
-    }
+// ============================================
+// EXPORTAR SIN OFERTA (CSV)
+// ============================================
+const handleExport = () => {
+  if (productosSinOferta.length === 0) {
+    alert('No hay productos para exportar');
+    return;
+  }
 
-    const dataExport = productosSinOferta.map((p: any) => ({
-      SKU: p.sku,
-      Descripcion: p.descripcion,
-      Marca: p.marca,
-      Precio: p.precioNormal,
-      Unitario: p.precioUnitario
-    }));
+  // Cabecera requerida
+  const headers = ['sku', 'descripcion'];
 
-    const ws = XLSX.utils.json_to_sheet(dataExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'SinOferta');
-    XLSX.writeFile(wb, 'productos_sin_oferta.xlsx');
-  };
+  // Filas requeridas
+  const rows = productosSinOferta.map((p: any) => [
+    p.sku,
+    p.descripcion
+  ]);
+
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row =>
+      row.map(value =>
+        `"${String(value ?? '').replace(/"/g, '""')}"`
+      ).join(',')
+    )
+  ].join('\n');
+
+  const blob = new Blob([csvContent], {
+    type: 'text/csv;charset=utf-8;'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = 'productos_sin_oferta.csv';
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
 	
   return (
     <div className="space-y-6">

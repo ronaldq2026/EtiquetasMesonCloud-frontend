@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileJson, Database, UploadCloud } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 export function TabDatabaseRead() {
   const [data, setData] = useState<any>(null);
@@ -169,27 +168,44 @@ const handlePrintSelected = async () => {
     setSelectedWithOffer(next);
   };
 
-  // =============================
-  // EXPORTAR SIN OFERTA
-  // =============================
+	// =============================
+	// EXPORTAR SIN OFERTA (CSV)
+	// =============================
 	const handleExportSinOferta = () => {
 	  if (productosSinOferta.length === 0) {
 		alert('No hay productos para exportar');
 		return;
 	  }
 
-	  const dataExport = productosSinOferta.map((p: any) => ({
-		SKU: p.sku,
-		Descripcion: p.descripcion,
-		Marca: p.marca,
-		Precio: p.precioNormal
-	  }));
+	  const headers = ['sku', 'descripcion'];
 
-	  const ws = XLSX.utils.json_to_sheet(dataExport);
-	  const wb = XLSX.utils.book_new();
-	  XLSX.utils.book_append_sheet(wb, ws, 'SinOferta');
-	  XLSX.writeFile(wb, 'productos_sin_oferta.xlsx');
-	};  
+	  const rows = productosSinOferta.map((p: any) => [
+		p.sku,
+		p.descripcion
+	  ]);
+
+	  const csvContent = [
+		headers.join(','),		
+		...rows.map((row: string[]) =>
+		  row.map((value: string) =>
+			`"${value.replace(/"/g, '""')}"`
+		   ).join(',')
+		)
+	  ].join('\n');
+
+	  const blob = new Blob([csvContent], {
+		type: 'text/csv;charset=utf-8;'
+	  });
+
+	  const url = URL.createObjectURL(blob);
+	  const link = document.createElement('a');
+
+	  link.href = url;
+	  link.download = 'productos_sin_oferta.csv';
+	  link.click();
+
+	  URL.revokeObjectURL(url);
+	};
 	
   // =============================
   // UI
@@ -337,7 +353,7 @@ const handlePrintSelected = async () => {
 			onClick={handleExportSinOferta}
 			className="bg-red-600 hover:bg-red-700"
 		  >
-			Exportar Excel
+			Exportar CSV Sin Oferta
 		  </Button>
 		</div>
 
