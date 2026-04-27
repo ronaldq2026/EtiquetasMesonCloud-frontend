@@ -96,17 +96,26 @@ setActiveMenu(val as 'manual' | 'database' | 'file')
 className="w-full"
 >
 
-<TabsList className="grid w-full grid-cols-3 rounded-none bg-transparent">
+<TabsList className="grid w-full h-auto grid-cols-3 gap-3 bg-transparent p-0">
 
-<TabsTrigger value="manual">
+<TabsTrigger
+value="manual"
+className="min-h-[56px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 data-[state=active]:border-red-600 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+>
 Búsqueda Manual
 </TabsTrigger>
 
-<TabsTrigger value="database">
+<TabsTrigger
+value="database"
+className="min-h-[56px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 data-[state=active]:border-red-600 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+>
 Leer Archivo Centralizado
 </TabsTrigger>
 
-<TabsTrigger value="file">
+<TabsTrigger
+value="file"
+className="min-h-[56px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 data-[state=active]:border-red-600 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+>
 Cargar Archivo Etiqueta
 </TabsTrigger>
 

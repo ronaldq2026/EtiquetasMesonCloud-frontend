@@ -232,7 +232,7 @@ return (
 	  </Button>
 
 	  <Button variant="outline" onClick={handlePrintZPL}>
-		Zebra
+		Imprimir
 	  </Button>
 
 	  <Button variant="outline" onClick={handlePrintPDF}>

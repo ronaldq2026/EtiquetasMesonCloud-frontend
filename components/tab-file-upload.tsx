@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { FileText, AlertCircle } from 'lucide-react';
 
 interface ParsedResult {
@@ -26,6 +27,9 @@ export function TabFileUpload() {
 
   const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
   const [selectAllWithOffer, setSelectAllWithOffer] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // =============================
   // DATA DERIVADA ✅
@@ -33,6 +37,35 @@ export function TabFileUpload() {
   const productosConOferta = parseResult?.conOferta ?? [];
   const productosSinOferta = parseResult?.sinOferta ?? [];
   const noEncontrados = parseResult?.noEncontrados ?? [];
+  const filteredProductosConOferta = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return productosConOferta;
+
+    return productosConOferta.filter((p: any) =>
+      [p.descripcion, p.sku, p.ean13]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term))
+    );
+  }, [productosConOferta, searchTerm]);
+  const totalPages = Math.max(1, Math.ceil(filteredProductosConOferta.length / ITEMS_PER_PAGE));
+  const paginatedProductosConOferta = filteredProductosConOferta.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const selectedProducts = productosConOferta.filter((p: any) =>
+    selectedWithOffer.has(String(p.sku))
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, productosConOferta.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // ============================================
   // 🔵 LEER ETIQUERF
@@ -68,6 +101,8 @@ export function TabFileUpload() {
 
       setSelectedWithOffer(new Set());
       setSelectAllWithOffer(false);
+      setSearchTerm('');
+      setCurrentPage(1);
 
     } catch (err) {
       console.error(err);
@@ -85,18 +120,29 @@ export function TabFileUpload() {
     next.has(sku) ? next.delete(sku) : next.add(sku);
 
     setSelectedWithOffer(next);
-    setSelectAllWithOffer(next.size === productosConOferta.length);
+    setSelectAllWithOffer(next.size === filteredProductosConOferta.length && filteredProductosConOferta.length > 0);
   };
 
   const toggleSelectAllWithOffer = () => {
     if (selectAllWithOffer) {
-      setSelectedWithOffer(new Set());
+      const next = new Set(selectedWithOffer);
+      filteredProductosConOferta.forEach((p: any) => next.delete(String(p.sku)));
+      setSelectedWithOffer(next);
       setSelectAllWithOffer(false);
     } else {
-      setSelectedWithOffer(new Set(productosConOferta.map(p => p.sku)));
+      const next = new Set(selectedWithOffer);
+      filteredProductosConOferta.forEach((p: any) => next.add(String(p.sku)));
+      setSelectedWithOffer(next);
       setSelectAllWithOffer(true);
     }
   };
+
+  useEffect(() => {
+    setSelectAllWithOffer(
+      filteredProductosConOferta.length > 0 &&
+      filteredProductosConOferta.every((p: any) => selectedWithOffer.has(String(p.sku)))
+    );
+  }, [filteredProductosConOferta, selectedWithOffer]);
 
   // ============================================
   // 🖨️ IMPRIMIR MASIVO
@@ -106,7 +152,7 @@ export function TabFileUpload() {
 
     try {
       const seleccionados = productosConOferta.filter(p =>
-        selectedWithOffer.has(p.sku)
+        selectedWithOffer.has(String(p.sku))
       );
 
       if (seleccionados.length === 0) {
@@ -148,6 +194,53 @@ export function TabFileUpload() {
       setSelectedWithOffer(new Set());
       setSelectAllWithOffer(false);
 
+    } catch (err) {
+      console.error(err);
+      alert('Error en impresión masiva');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrintAll = async () => {
+    if (loading) return;
+
+    if (productosConOferta.length === 0) {
+      alert('No hay productos para imprimir');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = productosConOferta.map((p: any) => ({
+        producto: p.descripcion,
+        sku: p.sku,
+        ean13: p.ean13,
+        unidadMedida: p.unidadMedida,
+        precioNormal: p.precioNormal,
+        precioUnitario: p.precioUnitario,
+        precioOferta: p.precioOferta,
+        validoHasta: p.vigenciaFin,
+        cantidad: 1
+      }));
+
+      const res = await fetch('http://localhost:3000/api/labels/print', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-token': 'MI_TOKEN_DEMO_123'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!result.ok) {
+        throw new Error('Error en impresión masiva');
+      }
+
+      alert(`✔ ${payload.length} etiquetas enviadas correctamente`);
     } catch (err) {
       console.error(err);
       alert('Error en impresión masiva');
@@ -213,13 +306,22 @@ const handleExport = () => {
         </CardHeader>
 
         <CardContent>
-          <Button
-            onClick={handleLeerEtiqRF}
-            disabled={loading}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            {loading ? 'Leyendo...' : 'Leer ETIQUERF'}
-          </Button>
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              onClick={handleLeerEtiqRF}
+              disabled={loading}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {loading ? 'Leyendo...' : 'Leer ETIQUERF'}
+            </Button>
+            <Button
+              onClick={handlePrintAll}
+              disabled={loading || productosConOferta.length === 0}
+              className="bg-slate-700 hover:bg-slate-800"
+            >
+              Imprimir todos ({productosConOferta.length})
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -271,12 +373,28 @@ const handleExport = () => {
 
               <div className="flex items-center gap-2">
                 <Checkbox checked={selectAllWithOffer} onCheckedChange={toggleSelectAllWithOffer}/>
-                <span className="text-sm">Seleccionar todo</span>
+                <span className="text-sm">Seleccionar filtrados</span>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-2">
-			  {parseResult.conOferta.map((p: any, index: number) => (
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por descripcion, SKU o EAN13"
+                />
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>
+                    Mostrando {paginatedProductosConOferta.length} de {filteredProductosConOferta.length} productos filtrados
+                  </span>
+                  <span>
+                    Seleccionados: {selectedWithOffer.size}
+                  </span>
+                </div>
+              </div>
+
+			  {paginatedProductosConOferta.map((p: any) => (
 				  <div
 					key={p.sku}
 					className="border rounded-lg p-4 flex justify-between items-center bg-white shadow-sm"
@@ -284,8 +402,8 @@ const handleExport = () => {
 					{/* IZQUIERDA */}
 					<div className="flex items-start gap-3">
 					  <Checkbox
-						  checked={selectedWithOffer.has(p.sku)}
-						  onCheckedChange={() => toggleWithOffer(p.sku)}
+						  checked={selectedWithOffer.has(String(p.sku))}
+						  onCheckedChange={() => toggleWithOffer(String(p.sku))}
 					  />
 					  <div>
 						<p className="font-semibold text-base">
@@ -313,8 +431,58 @@ const handleExport = () => {
 					</div>
 				  </div>			  
               ))}
+
+              {filteredProductosConOferta.length === 0 && (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                  No se encontraron productos con ese criterio de búsqueda.
+                </div>
+              )}
+
+              {filteredProductosConOferta.length > 0 && (
+                <div className="flex items-center justify-between border-t pt-4">
+                  <p className="text-sm text-gray-600">
+                    Página {currentPage} de {totalPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {selectedProducts.length > 0 && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader>
+                <CardTitle className="text-blue-900">
+                  Productos listos para imprimir ({selectedProducts.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                {selectedProducts.map((p: any) => (
+                  <div
+                    key={p.sku}
+                    className="rounded-full border border-blue-200 bg-white px-3 py-1 text-sm text-blue-900"
+                  >
+                    {p.descripcion} ({p.sku})
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* SIN OFERTA */}
           <Card>
@@ -384,8 +552,16 @@ const handleExport = () => {
 			</Button>			
 
             <Button
+              onClick={handlePrintAll}
+              disabled={loading || productosConOferta.length === 0}
+              className="bg-slate-700 hover:bg-slate-800"
+            >
+              Imprimir todos ({productosConOferta.length})
+            </Button>
+
+            <Button
               onClick={handleExport}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 col-span-2"
             >
               Exportar Sin Oferta ({parseResult.sinOferta.length})
             </Button>

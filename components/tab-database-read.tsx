@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -10,20 +10,54 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { FileJson, Database, UploadCloud } from 'lucide-react';
 
 export function TabDatabaseRead() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const ITEMS_PER_PAGE = 10;
 
   // =============================
   // DATA DERIVADA (⬅️ MOVIDA ARRIBA)
   // =============================
   const productosConOferta = data?.conOferta?.items ?? [];
   const productosSinOferta = data?.sinOferta?.items ?? [];
+  const filteredProductosConOferta = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return productosConOferta;
+
+    return productosConOferta.filter((p: any) =>
+      [p.descripcion, p.sku, p.ean13]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term))
+    );
+  }, [productosConOferta, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProductosConOferta.length / ITEMS_PER_PAGE));
+  const paginatedProductosConOferta = filteredProductosConOferta.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const selectedProducts = productosConOferta.filter((p: any) =>
+    selectedWithOffer.has(String(p.sku))
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, productosConOferta.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // =============================
   // 🔵 LEER CENTRALIZADO
@@ -41,6 +75,9 @@ export function TabDatabaseRead() {
       const json = await res.json();
       console.log('CENTRALIZADO:', json);
       setData(json);
+      setSelectedWithOffer(new Set());
+      setSearchTerm('');
+      setCurrentPage(1);
 
     } catch (err) {
       console.error(err);
@@ -97,7 +134,7 @@ const handlePrintSelected = async () => {
 
   try {
     const seleccionados = productosConOferta.filter((p: any) =>
-      selectedWithOffer.has(p.sku)
+      selectedWithOffer.has(String(p.sku))
     );
 
     if (seleccionados.length === 0) {
@@ -147,11 +184,57 @@ const handlePrintSelected = async () => {
   }
 };
 
+const handlePrintAll = async () => {
+  if (loading) return;
+
+  if (productosConOferta.length === 0) {
+    alert('No hay productos para imprimir');
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const payload = productosConOferta.map((p: any) => ({
+      producto: p.descripcion,
+      sku: p.sku,
+      ean13: p.ean13,
+      unidadMedida: p.unidadMedida,
+      precioNormal: p.precioNormal,
+      precioUnitario: p.precioUnitario,
+      precioOferta: p.precioOferta,
+      validoHasta: p.vigenciaFin,
+      cantidad: 1
+    }));
+
+    const res = await fetch('http://localhost:3000/api/labels/print', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-token': 'MI_TOKEN_DEMO_123'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (!result.ok) {
+      throw new Error('Error imprimiendo todo');
+    }
+
+    alert(`✔ ${payload.length} etiquetas enviadas`);
+  } catch (err) {
+    console.error(err);
+    alert('Error imprimiendo');
+  } finally {
+    setLoading(false);
+  }
+};
+
 	
 	const selectAll = () => {	  
-      const all = new Set<string>(
-		productosConOferta.map((p: any) => String(p.sku))
-		);
+      const all = new Set<string>(selectedWithOffer);
+      filteredProductosConOferta.forEach((p: any) => all.add(String(p.sku)));
 	  setSelectedWithOffer(all);
 	};
 
@@ -236,7 +319,7 @@ const handlePrintSelected = async () => {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="flex gap-3">
+        <CardContent className="flex gap-3 flex-wrap">
 
           <Button onClick={handleLeerCentralizado} disabled={loading}>
             <Database className="h-4 w-4 mr-2" />
@@ -251,8 +334,15 @@ const handlePrintSelected = async () => {
             <UploadCloud className="h-4 w-4 mr-2" />
             Cargar a Oracle
           </Button>
-		  <Button onClick={selectAll}>Seleccionar todos</Button>
+		  <Button onClick={selectAll}>Seleccionar filtrados</Button>
 			<Button onClick={clearAll}>Limpiar</Button>
+          <Button
+            onClick={handlePrintAll}
+            disabled={loading || productosConOferta.length === 0}
+            className="bg-slate-700 hover:bg-slate-800"
+          >
+            Imprimir todos ({productosConOferta.length})
+          </Button>
 
         </CardContent>
       </Card>
@@ -281,12 +371,28 @@ const handlePrintSelected = async () => {
         <CardHeader>
           <CardTitle>Productos CON Oferta ({productosConOferta.length})</CardTitle>
         </CardHeader>
-        <CardContent>
-          {productosConOferta.map((p: any) => (
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por descripcion, SKU o EAN13"
+            />
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>
+                Mostrando {paginatedProductosConOferta.length} de {filteredProductosConOferta.length} productos filtrados
+              </span>
+              <span>
+                Seleccionados: {selectedWithOffer.size}
+              </span>
+            </div>
+          </div>
+
+          {paginatedProductosConOferta.map((p: any) => (
             <div key={p.sku} className="flex items-center gap-3 border p-2 rounded">
               <Checkbox
-                checked={selectedWithOffer.has(p.sku)}
-                onCheckedChange={() => toggle(p.sku)}
+                checked={selectedWithOffer.has(String(p.sku))}
+                onCheckedChange={() => toggle(String(p.sku))}
               />
               <div className="flex-1">
                 <p className="font-semibold">{p.descripcion}</p>
@@ -307,16 +413,74 @@ const handlePrintSelected = async () => {
 				</div>
             </div>
           ))}
+
+          {filteredProductosConOferta.length === 0 && (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+              No se encontraron productos con ese criterio de búsqueda.
+            </div>
+          )}
+
+          {filteredProductosConOferta.length > 0 && (
+            <div className="flex items-center justify-between border-t pt-4">
+              <p className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+      {selectedProducts.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-blue-900">
+              Productos listos para imprimir ({selectedProducts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {selectedProducts.map((p: any) => (
+              <div
+                key={p.sku}
+                className="rounded-full border border-blue-200 bg-white px-3 py-1 text-sm text-blue-900"
+              >
+                {p.descripcion} ({p.sku})
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 	  <div className="flex justify-end mt-4">
+        <div className="flex gap-3">
 		  <Button
-			disabled={selectedWithOffer.size === 0 || loading}
-			onClick={handlePrintSelected}
-			className="bg-blue-600 hover:bg-blue-700"
+            variant="outline"
+			disabled={loading || productosConOferta.length === 0}
+			onClick={handlePrintAll}
 		  >
-			Imprimir seleccionados ({selectedWithOffer.size})
+			Imprimir todos ({productosConOferta.length})
 		  </Button>
+          <Button
+            disabled={selectedWithOffer.size === 0 || loading}
+            onClick={handlePrintSelected}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Imprimir seleccionados ({selectedWithOffer.size})
+          </Button>
+        </div>
 		</div>
 	  
 
