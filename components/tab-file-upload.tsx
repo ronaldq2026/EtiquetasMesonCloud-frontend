@@ -298,7 +298,7 @@ const handleExport = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-purple-600" />
-            Lectura Archivo ETIQUERF
+            Cargar Archivo Etiqueta (RF)
           </CardTitle>
           <CardDescription>
             Lee archivo generado por pistola RF desde servidor

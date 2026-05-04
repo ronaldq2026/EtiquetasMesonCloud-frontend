@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { Printer, CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, AlertCircle } from "lucide-react"
 
 interface PrintExportProps {
 product: Product | null
@@ -40,45 +40,6 @@ if (errors.length > 0) {
 
 setValidationErrors([])
 return true
-}
-
-// -------------------------
-// GENERAR PDF (PRINT BROWSER)
-// -------------------------
-
-function handlePrintPDF() {
-if (!validate()) return
-
-const html =
-  "<html>" +
-  "<head>" +
-  "<title>Etiqueta</title>" +
-  "<style>" +
-  "body{margin:0;padding:20px;font-family:Arial;text-align:center}" +
-  ".label{border:1px solid #ccc;padding:10px;margin:10px;display:inline-block;width:200px}" +
-  ".price{font-size:20px;font-weight:bold}" +
-  "</style>" +
-  "</head>" +
-  "<body>" +
-  Array(quantity).fill(
-    "<div class='label'>" +
-    "<div>" + (p.descripcion ?? "") + "</div>" +
-    "<div>SKU: " + p.codigo + "</div>" +
-    "<div class='price'>$" + (p.precioOferta ?? p.precioUnitario ?? 0) + "</div>" +
-    "</div>"
-  ).join("") +
-  "</body></html>"
-
-const win = window.open("", "_blank")
-
-if (!win) return
-
-win.document.open()
-win.document.write(html)
-win.document.close()
-
-win.focus()
-win.print()
 }
 
 // -------------------------
@@ -228,16 +189,11 @@ return (
 	
 	<div className="flex gap-2">
 	  <Button variant="default" onClick={handlePreviewZPL}>
-		Vista Zebra
+		Preview
 	  </Button>
 
 	  <Button variant="outline" onClick={handlePrintZPL}>
 		Imprimir
-	  </Button>
-
-	  <Button variant="outline" onClick={handlePrintPDF}>
-		<Printer className="mr-2 h-4 w-4" />
-		PDF
 	  </Button>
 	</div>
 

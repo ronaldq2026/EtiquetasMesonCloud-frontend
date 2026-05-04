@@ -312,7 +312,7 @@ const handlePrintAll = async () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileJson className="h-5 w-5 text-blue-600" />
-            Leer Archivo Centralizado
+            Carga Automatica de Ofertas
           </CardTitle>
           <CardDescription>
             Flujo: Excel → Oracle → POS (DBF)
@@ -323,7 +323,7 @@ const handlePrintAll = async () => {
 
           <Button onClick={handleLeerCentralizado} disabled={loading}>
             <Database className="h-4 w-4 mr-2" />
-            {loading ? 'Cargando...' : 'Leer Centralizado'}
+            {loading ? 'Cargando...' : 'Mostrar ofertas'}
           </Button>
 
           <Button
@@ -332,10 +332,10 @@ const handlePrintAll = async () => {
             className="bg-green-600 hover:bg-green-700"
           >
             <UploadCloud className="h-4 w-4 mr-2" />
-            Cargar a Oracle
+            Cargar PAI
           </Button>
-		  <Button onClick={selectAll}>Seleccionar filtrados</Button>
-			<Button onClick={clearAll}>Limpiar</Button>
+		  <Button onClick={selectAll}>Seleccionar todos</Button>
+			<Button onClick={clearAll}>Borrar seleccion</Button>
           <Button
             onClick={handlePrintAll}
             disabled={loading || productosConOferta.length === 0}

@@ -16,8 +16,6 @@ import {
   type ProductoPOSDPOFE,
 } from '@/lib/api';
 
-import { ExcelUploader } from '@/components/excel-uploader';
-
 interface ProductSearchProps {
   selectedProduct: Product | null
   onProductSelect: (p: Product) => void
@@ -144,8 +142,6 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
       </CardHeader>
 
       <CardContent className="space-y-4">
-
-        <ExcelUploader userName="Ronald Quiroga" />
 
         <div className="relative">
 
