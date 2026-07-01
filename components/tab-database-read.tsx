@@ -13,7 +13,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { FileJson, Database, UploadCloud } from 'lucide-react';
 
-export function TabDatabaseRead() {
+interface TabDatabaseReadProps {
+  canUploadPAI?: boolean;
+}
+
+export function TabDatabaseRead({ canUploadPAI }: TabDatabaseReadProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [selectedWithOffer, setSelectedWithOffer] = useState<Set<string>>(new Set());
@@ -328,7 +332,7 @@ const handlePrintAll = async () => {
 
           <Button
             onClick={handleCargarOracle}
-            disabled={loading}
+            disabled={loading || !canUploadPAI}
             className="bg-green-600 hover:bg-green-700"
           >
             <UploadCloud className="h-4 w-4 mr-2" />

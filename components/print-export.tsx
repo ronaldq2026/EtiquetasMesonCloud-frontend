@@ -189,7 +189,7 @@ return (
 	
 	<div className="flex gap-2">
 	  <Button variant="default" onClick={handlePreviewZPL}>
-		Preview
+		Visualizar
 	  </Button>
 
 	  <Button variant="outline" onClick={handlePrintZPL}>

@@ -30,6 +30,9 @@ export default function Home() {
   const [labelConfig] = useState<LabelConfig>(defaultLabelConfig);
   const [activeMenu, setActiveMenu] =
     useState<'manual' | 'database' | 'file'>('manual');
+  const [canUploadPAI] = useState(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('canUploadPAI') === 'true'
+  );
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -115,7 +118,7 @@ export default function Home() {
           </div>
         )}
 
-        {activeMenu === 'database' && <TabDatabaseRead />}
+        {activeMenu === 'database' && <TabDatabaseRead canUploadPAI={canUploadPAI} />}
 
         {activeMenu === 'file' && <TabFileUpload />}
       </div>
