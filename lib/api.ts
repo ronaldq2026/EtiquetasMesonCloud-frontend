@@ -173,6 +173,31 @@ export async function enrichFromDPOFE(sku: string) {
   };
 }
 
+/* ====== NUEVO: Búsqueda manual sobre universo PAI ======
+  El backend filtra SOLO los SKUs de la carga vigente de PAI_SKU
+  (getSkusCentralizados) y los cruza con POS en lote (sin N+1).
+  Cada item devuelto ya viene completo (descripción, precios, oferta).
+*/
+export async function searchPaiManual(term: string) {
+  const url = `${API_BASE_URL}/api/pai/buscar-manual?q=${encodeURIComponent(term)}`;
+  const res = await fetch(url, { method: 'GET', headers: buildHeaders() });
+  const parsed = await parseOrText(res);
+  if (!res.ok || !parsed.asJson?.ok) {
+    const msgBase =
+      parsed.asJson?.message ??
+      parsed.asText ??
+      `Error buscando en PAI (${res.status})`;
+    const msg = parsed.asJson?.detail ? `${msgBase} · Detalle: ${parsed.asJson.detail}` : msgBase;
+    throw new Error(msg);
+  }
+  return parsed.asJson as {
+    ok: true;
+    universe: number;
+    count: number;
+    items: ProductoPOSDPOFE[];
+  };
+}
+
 /* ========= NUEVO: Exportar “HTML” (descargar EPL en DEV / imprimir en PROD) =========
    Simplificado para evitar toggles en el frontend:
    - Siempre enviamos mode: 'return-zpl'

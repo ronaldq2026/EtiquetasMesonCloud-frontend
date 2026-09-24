@@ -10,9 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Search, Loader2, AlertTriangle } from 'lucide-react';
 
 import {
-  searchExcel,
-  enrichFromDPOFE,
-  type ExcelItem,
+  searchPaiManual,
   type ProductoPOSDPOFE,
 } from '@/lib/api';
 
@@ -21,7 +19,7 @@ interface ProductSearchProps {
   onProductSelect: (p: Product) => void
 }
 
-function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: ExcelItem): Product {
+function mapOfertaToProduct(oferta: ProductoPOSDPOFE, excel: { sku: string; descripcion?: string }): Product {
 
   console.log("OFERTA RAW", oferta)
 
@@ -70,7 +68,7 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [items, setItems] = useState<ExcelItem[]>([]);
+  const [items, setItems] = useState<ProductoPOSDPOFE[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,13 +85,13 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
       try {
 
         setLoading(true);
-        const data = await searchExcel(term);
+        const data = await searchPaiManual(term);
 
-        setItems(data ?? []);
+        setItems(data?.items ?? []);
 
       } catch (err: any) {
 
-        setError(err?.message || 'Error buscando Excel');
+        setError(err?.message || 'Error buscando en PAI');
 
       } finally {
         setLoading(false);
@@ -105,20 +103,16 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
 
   }, [query]);
 
-  async function handleSelectExcelItem(it: ExcelItem) {
+  async function handleSelectExcelItem(it: ProductoPOSDPOFE) {
 
     try {
 
       setLoading(true);
 
-      const resp = await enrichFromDPOFE(it.sku);
+      // el item ya viene enriquecido (sku + descripcion + precios + oferta)
+      const excel = { sku: it.sku, descripcion: it.descripcion ?? '' };
 
-      if (!resp?.producto) {
-        setError('Producto no encontrado en POSDPOFE');
-        return;
-      }
-
-      const product = mapOfertaToProduct(resp.producto, it);
+      const product = mapOfertaToProduct(it, excel);
 
       onProductSelect(product);
 
@@ -137,7 +131,7 @@ export function ProductSearch({ onProductSelect, selectedProduct }: ProductSearc
       <CardHeader>
         <CardTitle>Seleccionar Producto</CardTitle>
         <CardDescription>
-          Busca dentro del Excel cargado
+          Busca dentro de la carga vigente de PAI (PAI_SKU)
         </CardDescription>
       </CardHeader>
 
