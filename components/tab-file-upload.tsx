@@ -29,7 +29,9 @@ export function TabFileUpload() {
   const [selectAllWithOffer, setSelectAllWithOffer] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentSinOfertaPage, setCurrentSinOfertaPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const SIN_OFERTA_ITEMS_PER_PAGE = 5;
 
   // =============================
   // DATA DERIVADA ✅
@@ -53,6 +55,14 @@ export function TabFileUpload() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+  const totalSinOfertaPages = Math.max(
+    1,
+    Math.ceil(productosSinOferta.length / SIN_OFERTA_ITEMS_PER_PAGE)
+  );
+  const paginatedProductosSinOferta = productosSinOferta.slice(
+    (currentSinOfertaPage - 1) * SIN_OFERTA_ITEMS_PER_PAGE,
+    currentSinOfertaPage * SIN_OFERTA_ITEMS_PER_PAGE
+  );
   const selectedProducts = productosConOferta.filter((p: any) =>
     selectedWithOffer.has(String(p.sku))
   );
@@ -66,6 +76,16 @@ export function TabFileUpload() {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentSinOfertaPage(1);
+  }, [productosSinOferta.length]);
+
+  useEffect(() => {
+    if (currentSinOfertaPage > totalSinOfertaPages) {
+      setCurrentSinOfertaPage(totalSinOfertaPages);
+    }
+  }, [currentSinOfertaPage, totalSinOfertaPages]);
 
   // ============================================
   // 🔵 LEER ETIQUERF
@@ -101,8 +121,9 @@ export function TabFileUpload() {
 
       setSelectedWithOffer(new Set());
       setSelectAllWithOffer(false);
-      setSearchTerm('');
-      setCurrentPage(1);
+       setSearchTerm('');
+       setCurrentPage(1);
+       setCurrentSinOfertaPage(1);
 
     } catch (err) {
       console.error(err);
@@ -490,7 +511,7 @@ const handleExport = () => {
               <CardTitle>Productos SIN Oferta ({parseResult.sinOferta.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {parseResult.sinOferta.map((p: any) => (
+              {paginatedProductosSinOferta.map((p: any) => (
 				  <div
 					key={p.sku}
 					className="border border-red-300 rounded-lg p-4 flex justify-between items-center bg-red-50"
@@ -516,6 +537,28 @@ const handleExport = () => {
 					</div>
 				  </div>
               ))}
+
+              {totalSinOfertaPages > 1 && (
+                <div className="flex items-center justify-between border-t pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentSinOfertaPage((page) => Math.max(1, page - 1))}
+                    disabled={currentSinOfertaPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <p className="text-sm text-gray-600">
+                    Página {currentSinOfertaPage} de {totalSinOfertaPages}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentSinOfertaPage((page) => Math.min(totalSinOfertaPages, page + 1))}
+                    disabled={currentSinOfertaPage === totalSinOfertaPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
